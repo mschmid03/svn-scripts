@@ -71,3 +71,9 @@
 .hero_swiper_sponsors-swiper .swiper-wrapper {
   transition-timing-function: linear;
 }
+
+// Background Swiper Home
+.swiper-slide.is-home-background,
+.hero-swiper_bottom-image_slide.swiper-slide {
+  transition-property: opacity;
+}

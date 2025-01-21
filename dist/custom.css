@@ -52,4 +52,8 @@
 .hero_swiper_sponsors-swiper .swiper-wrapper {
   transition-timing-function: linear;
 }
+.swiper-slide.is-home-background,
+.hero-swiper_bottom-image_slide.swiper-slide {
+  transition-property: opacity;
+}
 /*# sourceMappingURL=custom.css.map */
