@@ -1,0 +1,71 @@
+import Swiper from "swiper";
+import {
+  Autoplay,
+  Controller,
+  EffectCoverflow,
+  EffectFade,
+  FreeMode,
+  Navigation,
+  Virtual,
+} from "swiper/modules";
+import "swiper/css";
+
+const footerSwiper = new Swiper(".footer_swiper", {
+  loop: true,
+  direction: "horizontal",
+  slidesPerView: 4.8,
+  centeredSlides: true,
+  createElements: true,
+  wrapperClass: "footer_swiper-wrapper",
+  slideClass: "footer_swiper-slide",
+  navigation: true,
+  speed: 500,
+  autoplay: {
+    delay: 5000,
+  },
+
+  modules: [Navigation, Autoplay],
+});
+
+// Home Swipers
+const homeController = new Swiper(".home-controller", {
+  effect: "coverflow",
+  grabCursor: true,
+  centeredSlides: true,
+  loop: true,
+  slidesPerView: "auto",
+  coverflowEffect: {
+    rotate: 0,
+    stretch: 0,
+    depth: 100,
+    modifier: 1,
+    slideShadows: false,
+  },
+
+  modules: [Navigation, Autoplay, EffectCoverflow],
+
+  navigation: {
+    enabled: true,
+    nextEl: ".home-controller_button-next",
+    prevEl: ".home-controller_button-prev",
+  },
+});
+
+const homeControlled = new Swiper(".home-controlled", {
+  slidesPerView: 1,
+  slidesPerGroupAuto: true,
+  effect: "fade",
+  // enabled: false,
+  initialSlide: 0,
+  // speed: 100,
+  modules: [EffectFade, Virtual],
+  fadeEffect: {
+    crossFade: true,
+  },
+});
+
+// Footer Swiper Overlay insert (sollte wegen defer sauber funktionieren)
+const footerSwiperE = document.querySelector(".footer_swiper");
+const footerOverlay = document.createElement("div");
+footerOverlay.classList.add("footer_swiper_overlay");
+footerSwiperE?.appendChild(footerOverlay);

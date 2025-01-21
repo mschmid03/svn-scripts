@@ -1,5 +1,5 @@
 {
-  "name": "fassungslos",
+  "name": "sv-nufringen",
   "version": "1.0.0",
   "main": "index.js",
   "scripts": {
@@ -16,5 +16,8 @@
     "esbuild-sass-plugin": "^3.3.1",
     "postcss": "^8.4.45",
     "serve": "^14.2.3"
+  },
+  "dependencies": {
+    "swiper": "^11.2.1"
   }
 }
