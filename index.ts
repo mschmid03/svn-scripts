@@ -82,6 +82,7 @@ const homeBgTop = new Swiper(".hero-swiper_background-swiper.is-swiper", {
     crossFade: true,
   },
 });
+
 const homeBgBottom = new Swiper(".hero-swiper_bottom-image_swiper", {
   slidesPerView: 1,
   effect: "fade",
