@@ -8212,6 +8212,13 @@
     "one+=175"
   );
   tl.fromTo(
+    bgImages[6],
+    { top: "0%" },
+    { top: "-7.5%", duration: 325 },
+    "seventh+=175"
+  );
+  bgImages.splice(6, 1);
+  tl.fromTo(
     bgImages,
     { autoAlpha: 1 },
     { autoAlpha: 0, duration: 150, stagger: { each: 500 } },
