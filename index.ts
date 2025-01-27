@@ -127,5 +127,3 @@ homeController.on("slideChangeTransitionStart", () => {
   homeBgBottom.slideTo(homeController.realIndex);
   console.log(homeControlled.realIndex);
 });
-
-console.log(homeControlled);

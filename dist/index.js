@@ -5022,6 +5022,5 @@
     homeBgBottom.slideTo(homeController.realIndex);
     console.log(homeControlled.realIndex);
   });
-  console.log(homeControlled);
 })();
 //# sourceMappingURL=index.js.map
