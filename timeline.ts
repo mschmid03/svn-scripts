@@ -174,3 +174,4 @@ for (let text of texts) {
     tl.fromTo(text.id, { autoAlpha: "100%" }, textOut, `${text.position}+=50`);
   }
 }
+// Kommentar
