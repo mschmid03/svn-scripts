@@ -1,34 +1,13 @@
-import Swiper from "swiper";
 import {
   Autoplay,
-  Controller,
   EffectCoverflow,
   EffectFade,
-  FreeMode,
   Navigation,
-  Virtual,
-} from "swiper/modules";
-import "swiper/css";
+  Swiper
+} from "./chunk-UMRWWSLY.js";
 
-const footerSwiper = new Swiper(".footer_swiper", {
-  loop: true,
-  direction: "horizontal",
-  slidesPerView: 4.8,
-  centeredSlides: true,
-  createElements: true,
-  wrapperClass: "footer_swiper-wrapper",
-  slideClass: "footer_swiper-slide",
-  navigation: true,
-  speed: 500,
-  autoplay: {
-    delay: 5000,
-  },
-
-  modules: [Navigation, Autoplay],
-});
-
-// Home Swipers
-const homeController = new Swiper(".home-controller", {
+// team-swiper.ts
+var homeController = new Swiper(".home-controller", {
   effect: "coverflow",
   grabCursor: true,
   centeredSlides: true,
@@ -39,19 +18,16 @@ const homeController = new Swiper(".home-controller", {
     stretch: -50,
     depth: 200,
     modifier: 1,
-    slideShadows: false,
+    slideShadows: false
   },
-
   modules: [Navigation, Autoplay, EffectCoverflow],
-
   navigation: {
     enabled: true,
     nextEl: ".home-controller_button-next",
-    prevEl: ".home-controller_button-prev",
-  },
+    prevEl: ".home-controller_button-prev"
+  }
 });
-
-const homeControlled = new Swiper(".home-controlled", {
+var homeControlled = new Swiper(".home-controlled", {
   slidesPerView: 1,
   effect: "fade",
   // enabled: false,
@@ -64,10 +40,10 @@ const homeControlled = new Swiper(".home-controlled", {
   navigation: false,
   modules: [EffectFade],
   fadeEffect: {
-    crossFade: true,
-  },
+    crossFade: true
+  }
 });
-const homeBgTop = new Swiper(".hero-swiper_background-swiper.is-swiper", {
+var homeBgTop = new Swiper(".hero-swiper_background-swiper.is-swiper", {
   slidesPerView: 1,
   effect: "fade",
   // enabled: false,
@@ -79,11 +55,10 @@ const homeBgTop = new Swiper(".hero-swiper_background-swiper.is-swiper", {
   wrapperClass: "hero-swiper_background-swiper-wrapper",
   modules: [EffectFade],
   fadeEffect: {
-    crossFade: true,
-  },
+    crossFade: true
+  }
 });
-
-const homeBgBottom = new Swiper(".hero-swiper_bottom-image_swiper", {
+var homeBgBottom = new Swiper(".hero-swiper_bottom-image_swiper", {
   slidesPerView: 1,
   effect: "fade",
   // enabled: false,
@@ -96,30 +71,22 @@ const homeBgBottom = new Swiper(".hero-swiper_bottom-image_swiper", {
   slideClass: "hero-swiper_bottom-image_slide",
   modules: [EffectFade],
   fadeEffect: {
-    crossFade: true,
-  },
+    crossFade: true
+  }
 });
-
-const sponsorMarquee = new Swiper(".hero_swiper_sponsors-swiper", {
+var sponsorMarquee = new Swiper(".hero_swiper_sponsors-swiper", {
   slidesPerView: "auto",
   spaceBetween: 120,
   loop: true,
-  speed: 18000,
+  speed: 18e3,
   allowTouchMove: false,
   slideClass: "hero_swiper_sponsors-slide",
   autoplay: {
     delay: 1,
-    disableOnInteraction: false,
+    disableOnInteraction: false
   },
-  modules: [Autoplay],
+  modules: [Autoplay]
 });
-
-// Footer Swiper Overlay insert (sollte wegen defer sauber funktionieren)
-const footerSwiperE = document.querySelector(".footer_swiper");
-const footerOverlay = document.createElement("div");
-footerOverlay.classList.add("footer_swiper_overlay");
-footerSwiperE?.appendChild(footerOverlay);
-
 homeController.on("slideChangeTransitionStart", () => {
   console.log(homeController.realIndex);
   homeControlled.slideTo(homeController.realIndex);
@@ -127,3 +94,4 @@ homeController.on("slideChangeTransitionStart", () => {
   homeBgBottom.slideTo(homeController.realIndex);
   console.log(homeControlled.realIndex);
 });
+//# sourceMappingURL=team-swiper.js.map

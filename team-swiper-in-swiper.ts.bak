@@ -1,0 +1,151 @@
+import Swiper from "swiper";
+import {
+  Autoplay,
+  Controller,
+  EffectCoverflow,
+  EffectFade,
+  FreeMode,
+  Navigation,
+  Virtual,
+} from "swiper/modules";
+import "swiper/css";
+
+// Home Swipers
+const teamController = new Swiper(".team-controller_swiper", {
+  effect: "coverflow",
+  grabCursor: true,
+  centeredSlides: true,
+  loop: true,
+  slidesPerView: "auto",
+  coverflowEffect: {
+    rotate: 0,
+    stretch: -50,
+    depth: 200,
+    modifier: 1,
+    slideShadows: false,
+  },
+
+  modules: [Navigation, Autoplay, EffectCoverflow],
+
+  navigation: {
+    enabled: true,
+    nextEl: ".team-controller_button-next",
+    prevEl: ".team-controller_button-prev",
+  },
+});
+
+const teamControlled = new Swiper(".teams-swiper_container", {
+  slidesPerView: 1,
+  effect: "fade",
+  // enabled: false,
+  centeredSlides: true,
+  initialSlide: 0,
+  speed: 0,
+  allowTouchMove: false,
+  navigation: false,
+  modules: [EffectFade],
+  fadeEffect: {
+    crossFade: true,
+  },
+});
+
+teamController.on("slideChangeTransitionStart", () => {
+  const index = teamController.activeIndex;
+  const slides = teamController.slides;
+  const activeSlide = slides[index];
+  const controllerIndex = activeSlide.getAttribute("controller-index");
+  teamControlled.slideTo(Number(controllerIndex));
+});
+
+const internalSlider: any[][] = [];
+const teamSlides = document.querySelectorAll(
+  ".teams-swiper_container > .swiper-wrapper > .swiper-slide",
+);
+
+// Select the node that will be observed for mutations
+const targetNodes = document.querySelectorAll(
+  ".team-uebersicht_internal_controller-container",
+);
+// Options for the observer (which mutations to observe)
+const config = { attributes: true, childList: true, subtree: true };
+
+targetNodes.forEach((targetNode) => {
+  // Callback function to execute when mutations are observed
+  const callback = (mutationList, observer) => {
+    for (const mutation of mutationList) {
+      if (mutation.type === "childList") {
+        console.log("A child node has been added or removed.");
+        teamSlides.forEach((slide, i) => {
+          internalSlider[i] = [];
+          if (
+            slide.querySelector(".team-uebersicht_internal_controller") &&
+            slide.querySelector(".team-uebersicht_internal_controlled")
+          ) {
+            const teamAttribute = slide.getAttribute("team");
+            if (teamAttribute !== null) {
+              internalSlider[i][0] = new Swiper(
+                `.team-uebersicht_internal_controller-container[team="${teamAttribute}"] .team-uebersicht_internal_controller`,
+                {
+                  effect: "slide",
+                  grabCursor: true,
+                  centeredSlides: false,
+                  spaceBetween: "18",
+                  loop: true,
+                  slidesPerView: "auto",
+
+                  modules: [Navigation, Autoplay, EffectCoverflow],
+
+                  navigation: {
+                    enabled: true,
+                    nextEl: `.team-uebersicht_internal_controller-next[team="${teamAttribute}"]`,
+                    prevEl: `.team-uebersicht_internal_controller-prev[team="${teamAttribute}"]`,
+                  },
+                },
+              );
+              internalSlider[i][1] = new Swiper(
+                `.team-uebersicht_internal_controlled[team="${teamAttribute}"]`,
+                {
+                  slidesPerView: 1,
+                  effect: "fade",
+                  enabled: false,
+                  centeredSlides: true,
+                  initialSlide: 0,
+                  speed: 0,
+                  allowTouchMove: false,
+                  navigation: false,
+                  modules: [EffectFade],
+                  fadeEffect: {
+                    crossFade: true,
+                  },
+                },
+              );
+              internalSlider[i][0].on("slideChangeTransitionStart", () => {
+                const index = internalSlider[i][0].activeIndex;
+                const slides = internalSlider[i][0].slides;
+                const activeSlide = slides[index];
+                const controllerIndex =
+                  activeSlide.getAttribute("controller-index");
+                internalSlider[i][1].slideTo(Number(controllerIndex));
+              });
+            } else {
+              console.warn("Team wurde nicht definiert!");
+            }
+          }
+        });
+        // Later, you can stop observing
+        observer.disconnect();
+      } else if (mutation.type === "attributes") {
+        console.log(`The ${mutation.attributeName} attribute was modified.`);
+      }
+    }
+  };
+
+  // Create an observer instance linked to the callback function
+  const observer = new MutationObserver(callback);
+
+  // Start observing the target node for configured mutations
+  observer.observe(targetNode, config);
+
+  // // Later, you can stop observing
+  // observer.disconnect();
+});

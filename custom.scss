@@ -1,6 +1,7 @@
 .footer_swiper,
 .home-controller,
-.home-controlled {
+.home-controlled,
+.teams-swiper_container {
   margin-left: auto;
   margin-right: auto;
   position: relative;
@@ -76,4 +77,14 @@
 .swiper-slide.is-home-background,
 .hero-swiper_bottom-image_slide.swiper-slide {
   transition-property: opacity;
+}
+
+// Teams Swiper Teamseiten
+.swiper-wrapper.is-teams {
+  flex-flow: row;
+}
+
+.teams-swiper_container
+  .swiper-slide.is-teams-swiper:not(.swiper-slide-active) {
+  pointer-events: none;
 }

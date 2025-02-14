@@ -1,0 +1,7 @@
+{
+  "version": 3,
+  "sources": ["../footer-swiper.ts"],
+  "sourcesContent": ["import Swiper from \"swiper\";\nimport {\n  Autoplay,\n  Controller,\n  EffectCoverflow,\n  EffectFade,\n  FreeMode,\n  Navigation,\n  Virtual,\n} from \"swiper/modules\";\nimport \"swiper/css\";\n\nconst footerSwiper = new Swiper(\".footer_swiper\", {\n  loop: true,\n  direction: \"horizontal\",\n  slidesPerView: 4.8,\n  centeredSlides: true,\n  createElements: true,\n  wrapperClass: \"footer_swiper-wrapper\",\n  slideClass: \"footer_swiper-slide\",\n  navigation: true,\n  speed: 500,\n  autoplay: {\n    delay: 5000,\n  },\n\n  modules: [Navigation, Autoplay],\n});\n\n// Footer Swiper Overlay insert (sollte wegen defer sauber funktionieren)\nconst footerSwiperE = document.querySelector(\".footer_swiper\");\nconst footerOverlay = document.createElement(\"div\");\nfooterOverlay.classList.add(\"footer_swiper_overlay\");\nfooterSwiperE?.appendChild(footerOverlay);\n"],
+  "mappings": ";;;;;;;AAYA,IAAM,eAAe,IAAI,OAAO,kBAAkB;AAAA,EAChD,MAAM;AAAA,EACN,WAAW;AAAA,EACX,eAAe;AAAA,EACf,gBAAgB;AAAA,EAChB,gBAAgB;AAAA,EAChB,cAAc;AAAA,EACd,YAAY;AAAA,EACZ,YAAY;AAAA,EACZ,OAAO;AAAA,EACP,UAAU;AAAA,IACR,OAAO;AAAA,EACT;AAAA,EAEA,SAAS,CAAC,YAAY,QAAQ;AAChC,CAAC;AAGD,IAAM,gBAAgB,SAAS,cAAc,gBAAgB;AAC7D,IAAM,gBAAgB,SAAS,cAAc,KAAK;AAClD,cAAc,UAAU,IAAI,uBAAuB;AACnD,eAAe,YAAY,aAAa;",
+  "names": []
+}
