@@ -5198,4 +5198,4 @@ export {
   EffectFade,
   EffectCoverflow
 };
-//# sourceMappingURL=chunk-TMPE5RUM.js.map
+//# sourceMappingURL=chunk-Z5U7C2Z6.js.map

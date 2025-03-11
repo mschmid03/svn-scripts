@@ -2,7 +2,7 @@ import {
   Autoplay,
   Navigation,
   Swiper
-} from "./chunk-TMPE5RUM.js";
+} from "./chunk-Z5U7C2Z6.js";
 
 // team-image-swiper.ts
 var imgSwiperNodes = document.querySelectorAll(

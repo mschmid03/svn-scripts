@@ -2,13 +2,13 @@ import {
   Autoplay,
   Navigation,
   Swiper
-} from "./chunk-TMPE5RUM.js";
+} from "./chunk-Z5U7C2Z6.js";
 
 // footer-swiper.ts
 var footerSwiper = new Swiper(".footer_swiper", {
   loop: true,
   direction: "horizontal",
-  slidesPerView: 4.8,
+  slidesPerView: 1,
   centeredSlides: true,
   createElements: true,
   wrapperClass: "footer_swiper-wrapper",
@@ -17,6 +17,23 @@ var footerSwiper = new Swiper(".footer_swiper", {
   speed: 500,
   autoplay: {
     delay: 5e3
+  },
+  breakpoints: {
+    320: {
+      slidesPerView: 1
+    },
+    480: {
+      slidesPerView: 2
+    },
+    768: {
+      slidesPerView: 3
+    },
+    992: {
+      slidesPerView: 4
+    },
+    1440: {
+      slidesPerView: 4.8
+    }
   },
   modules: [Navigation, Autoplay]
 });

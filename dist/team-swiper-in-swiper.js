@@ -5,7 +5,7 @@ import {
   Manipulation,
   Navigation,
   Swiper
-} from "./chunk-TMPE5RUM.js";
+} from "./chunk-Z5U7C2Z6.js";
 
 // team-swiper-in-swiper.ts
 var teamController = new Swiper(".team-controller_swiper", {

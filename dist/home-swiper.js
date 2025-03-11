@@ -2,15 +2,17 @@ import {
   Autoplay,
   EffectCoverflow,
   EffectFade,
+  Manipulation,
   Navigation,
   Swiper
-} from "./chunk-TMPE5RUM.js";
+} from "./chunk-Z5U7C2Z6.js";
 
 // home-swiper.ts
 var homeController = new Swiper(".home-controller", {
   effect: "coverflow",
   grabCursor: true,
   centeredSlides: true,
+  initialSlide: 0,
   loop: true,
   slidesPerView: "auto",
   coverflowEffect: {
@@ -20,13 +22,29 @@ var homeController = new Swiper(".home-controller", {
     modifier: 1,
     slideShadows: false
   },
-  modules: [Navigation, Autoplay, EffectCoverflow],
+  modules: [Navigation, Autoplay, EffectCoverflow, Manipulation],
   navigation: {
     enabled: true,
     nextEl: ".home-controller_button-next",
     prevEl: ".home-controller_button-prev"
   }
 });
+var realSlides = homeController.slides;
+var indexAttribute = "data-swiper-slide-index";
+realSlides.sort(
+  (a, b) => a.getAttribute(indexAttribute) > b.getAttribute(indexAttribute)
+);
+var slidesStrings = [];
+realSlides.forEach((slide, i) => {
+  const slideIndex = slide.getAttribute("data-swiper-slide-index");
+  slide.setAttribute("controller-index", slideIndex);
+  slidesStrings.push(slide.outerHTML);
+});
+homeController.removeAllSlides();
+while (homeController.slides.length < 10) {
+  homeController.appendSlide([...slidesStrings]);
+}
+homeController.slideToLoop(0);
 var homeControlled = new Swiper(".home-controlled", {
   slidesPerView: 1,
   effect: "fade",
@@ -82,16 +100,18 @@ var sponsorMarquee = new Swiper(".hero_swiper_sponsors-swiper", {
   allowTouchMove: false,
   slideClass: "hero_swiper_sponsors-slide",
   autoplay: {
-    delay: 1,
+    delay: 1.5,
     disableOnInteraction: false
   },
   modules: [Autoplay]
 });
 homeController.on("slideChangeTransitionStart", () => {
-  console.log(homeController.realIndex);
-  homeControlled.slideTo(homeController.realIndex);
-  homeBgTop.slideTo(homeController.realIndex);
-  homeBgBottom.slideTo(homeController.realIndex);
-  console.log(homeControlled.realIndex);
+  const index = homeController.activeIndex;
+  const slides = homeController.slides;
+  const activeSlide = slides[index];
+  const controllerIndex = activeSlide.getAttribute("controller-index");
+  homeControlled.slideTo(Number(controllerIndex));
+  homeBgTop.slideTo(Number(controllerIndex));
+  homeBgBottom.slideTo(Number(controllerIndex));
 });
 //# sourceMappingURL=home-swiper.js.map

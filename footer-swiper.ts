@@ -1,30 +1,47 @@
 import Swiper from "swiper";
-import {
-  Autoplay,
-  Controller,
-  EffectCoverflow,
-  EffectFade,
-  FreeMode,
-  Navigation,
-  Virtual,
-} from "swiper/modules";
 import "swiper/css";
+import {
+    Autoplay,
+    Controller,
+    EffectCoverflow,
+    EffectFade,
+    FreeMode,
+    Navigation,
+    Virtual,
+} from "swiper/modules";
 
 const footerSwiper = new Swiper(".footer_swiper", {
-  loop: true,
-  direction: "horizontal",
-  slidesPerView: 4.8,
-  centeredSlides: true,
-  createElements: true,
-  wrapperClass: "footer_swiper-wrapper",
-  slideClass: "footer_swiper-slide",
-  navigation: true,
-  speed: 500,
-  autoplay: {
-    delay: 5000,
-  },
+    loop: true,
+    direction: "horizontal",
+    slidesPerView: 1,
+    centeredSlides: true,
+    createElements: true,
+    wrapperClass: "footer_swiper-wrapper",
+    slideClass: "footer_swiper-slide",
+    navigation: true,
+    speed: 500,
+    autoplay: {
+        delay: 5000,
+    },
+    breakpoints: {
+        320: {
+            slidesPerView: 1,
+        },
+        480: {
+            slidesPerView: 2,
+        },
+        768: {
+            slidesPerView: 3,
+        },
+        992: {
+            slidesPerView: 4,
+        },
+        1440: {
+            slidesPerView: 4.8,
+        },
+    },
 
-  modules: [Navigation, Autoplay],
+    modules: [Navigation, Autoplay],
 });
 
 // Footer Swiper Overlay insert (sollte wegen defer sauber funktionieren)
