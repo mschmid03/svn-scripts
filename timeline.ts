@@ -7,7 +7,7 @@ import { ScrollTrigger } from "gsap/ScrollTrigger";
 import { DrawSVGPlugin } from "gsap/DrawSVGPlugin";
 
 gsap.registerPlugin(ScrollTrigger, MotionPathPlugin, DrawSVGPlugin);
-
+// commit comment
 let tl = gsap.timeline({
     // yes, we can add it to an entire timeline!
     scrollTrigger: {
