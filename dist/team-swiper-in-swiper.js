@@ -5,7 +5,7 @@ import {
   Manipulation,
   Navigation,
   Swiper
-} from "./chunk-HQHQQRU7.js";
+} from "./chunk-TMPE5RUM.js";
 
 // team-swiper-in-swiper.ts
 var teamController = new Swiper(".team-controller_swiper", {
@@ -71,6 +71,7 @@ targetNodes.forEach((targetNode, i) => {
               centeredSlides: false,
               spaceBetween: "18",
               loop: true,
+              initialSlide: 0,
               slidesPerView: "auto",
               modules: [Navigation, Manipulation],
               navigation: {
@@ -81,15 +82,23 @@ targetNodes.forEach((targetNode, i) => {
             }
           );
           const realSlides = internalSlider[i][0].slides;
+          const indexAttribute = "data-swiper-slide-index";
+          realSlides.sort(
+            (a, b) => a.getAttribute(indexAttribute) > b.getAttribute(indexAttribute)
+          );
           const slidesStrings = [];
           realSlides.forEach((slide, i2) => {
-            slide.setAttribute("controller-index", i2);
+            const slideIndex = slide.getAttribute(
+              "data-swiper-slide-index"
+            );
+            slide.setAttribute("controller-index", slideIndex);
             slidesStrings.push(slide.outerHTML);
           });
           internalSlider[i][0].removeAllSlides();
           while (internalSlider[i][0].slides.length < 10) {
             internalSlider[i][0].appendSlide([...slidesStrings]);
           }
+          internalSlider[i][0].slideTo(0);
           internalSlider[i][1] = new Swiper(
             `.team-uebersicht_internal_controlled[team="${teamAttribute}"]`,
             {
@@ -107,15 +116,20 @@ targetNodes.forEach((targetNode, i) => {
               }
             }
           );
-          internalSlider[i][0].on("slideChangeTransitionStart", () => {
-            const index = internalSlider[i][0].activeIndex;
-            const slides = internalSlider[i][0].slides;
-            const activeSlide = slides[index];
-            const controllerIndex = activeSlide.getAttribute("controller-index");
-            console.log(controllerIndex);
-            internalSlider[i][1].slideTo(Number(controllerIndex));
-            console.log(internalSlider[i][1].activeIndex);
-          });
+          internalSlider[i][0].on(
+            "slideChangeTransitionStart",
+            () => {
+              const index = internalSlider[i][0].activeIndex;
+              const slides = internalSlider[i][0].slides;
+              const activeSlide = slides[index];
+              const controllerIndex = activeSlide.getAttribute("controller-index");
+              console.log(controllerIndex);
+              internalSlider[i][1].slideTo(
+                Number(controllerIndex)
+              );
+              console.log(internalSlider[i][1].activeIndex);
+            }
+          );
         }
       }
     }

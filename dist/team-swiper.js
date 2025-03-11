@@ -2,16 +2,19 @@ import {
   Autoplay,
   EffectCoverflow,
   EffectFade,
+  HashNavigation,
+  Manipulation,
   Navigation,
   Swiper
-} from "./chunk-UMRWWSLY.js";
+} from "./chunk-TMPE5RUM.js";
 
 // team-swiper.ts
-var homeController = new Swiper(".home-controller", {
+var teamController = new Swiper(".team-controller_swiper", {
   effect: "coverflow",
   grabCursor: true,
   centeredSlides: true,
   loop: true,
+  hashNavigation: true,
   slidesPerView: "auto",
   coverflowEffect: {
     rotate: 0,
@@ -20,78 +23,57 @@ var homeController = new Swiper(".home-controller", {
     modifier: 1,
     slideShadows: false
   },
-  modules: [Navigation, Autoplay, EffectCoverflow],
+  modules: [
+    Manipulation,
+    Navigation,
+    Autoplay,
+    EffectCoverflow,
+    HashNavigation
+  ],
   navigation: {
     enabled: true,
-    nextEl: ".home-controller_button-next",
-    prevEl: ".home-controller_button-prev"
+    nextEl: ".team-controller_button-next",
+    prevEl: ".team-controller_button-prev"
   }
 });
-var homeControlled = new Swiper(".home-controlled", {
+var realSlides = teamController.slides;
+var indexAttribute = "data-swiper-slide-index";
+realSlides.sort(
+  (a, b) => a.getAttribute(indexAttribute) > b.getAttribute(indexAttribute)
+);
+var slidesStrings = [];
+realSlides.forEach((slide, i) => {
+  const slideIndex = slide.getAttribute("data-swiper-slide-index");
+  slide.setAttribute("controller-index", slideIndex);
+  slidesStrings.push(slide.outerHTML);
+});
+console.log(slidesStrings);
+teamController.removeAllSlides();
+while (teamController.slides.length < 10) {
+  teamController.appendSlide([...slidesStrings]);
+}
+var teamControlled = new Swiper(".teams-swiper_container", {
   slidesPerView: 1,
   effect: "fade",
   // enabled: false,
   centeredSlides: true,
+  hashNavigation: true,
   initialSlide: 0,
   speed: 0,
   allowTouchMove: false,
-  wrapperClass: "home-controlled_wrapper",
-  slideClass: "home-controlled_swiper-slide",
   navigation: false,
-  modules: [EffectFade],
+  modules: [EffectFade, HashNavigation],
   fadeEffect: {
     crossFade: true
   }
 });
-var homeBgTop = new Swiper(".hero-swiper_background-swiper.is-swiper", {
-  slidesPerView: 1,
-  effect: "fade",
-  // enabled: false,
-  centeredSlides: true,
-  initialSlide: 0,
-  speed: 500,
-  allowTouchMove: false,
-  navigation: false,
-  wrapperClass: "hero-swiper_background-swiper-wrapper",
-  modules: [EffectFade],
-  fadeEffect: {
-    crossFade: true
-  }
-});
-var homeBgBottom = new Swiper(".hero-swiper_bottom-image_swiper", {
-  slidesPerView: 1,
-  effect: "fade",
-  // enabled: false,
-  centeredSlides: true,
-  initialSlide: 0,
-  speed: 500,
-  allowTouchMove: false,
-  navigation: false,
-  wrapperClass: "hero-swiper_bottom-image_swiper-wrapper",
-  slideClass: "hero-swiper_bottom-image_slide",
-  modules: [EffectFade],
-  fadeEffect: {
-    crossFade: true
-  }
-});
-var sponsorMarquee = new Swiper(".hero_swiper_sponsors-swiper", {
-  slidesPerView: "auto",
-  spaceBetween: 120,
-  loop: true,
-  speed: 18e3,
-  allowTouchMove: false,
-  slideClass: "hero_swiper_sponsors-slide",
-  autoplay: {
-    delay: 1,
-    disableOnInteraction: false
-  },
-  modules: [Autoplay]
-});
-homeController.on("slideChangeTransitionStart", () => {
-  console.log(homeController.realIndex);
-  homeControlled.slideTo(homeController.realIndex);
-  homeBgTop.slideTo(homeController.realIndex);
-  homeBgBottom.slideTo(homeController.realIndex);
-  console.log(homeControlled.realIndex);
+teamController.on("slideChangeTransitionStart", () => {
+  const index = teamController.activeIndex;
+  const slides = teamController.slides;
+  const activeSlide = slides[index];
+  const controllerIndex = activeSlide.getAttribute("controller-index");
+  console.log(controllerIndex);
+  teamControlled.slideTo(Number(controllerIndex));
+  console.log(teamControlled.realIndex);
 });
 //# sourceMappingURL=team-swiper.js.map

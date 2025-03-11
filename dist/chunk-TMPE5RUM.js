@@ -4338,6 +4338,96 @@ function Navigation(_ref) {
   });
 }
 
+// node_modules/swiper/modules/hash-navigation.mjs
+function HashNavigation(_ref) {
+  let {
+    swiper,
+    extendParams,
+    emit,
+    on
+  } = _ref;
+  let initialized = false;
+  const document2 = getDocument();
+  const window2 = getWindow();
+  extendParams({
+    hashNavigation: {
+      enabled: false,
+      replaceState: false,
+      watchState: false,
+      getSlideIndex(_s, hash) {
+        if (swiper.virtual && swiper.params.virtual.enabled) {
+          const slideWithHash = swiper.slides.find((slideEl) => slideEl.getAttribute("data-hash") === hash);
+          if (!slideWithHash) return 0;
+          const index = parseInt(slideWithHash.getAttribute("data-swiper-slide-index"), 10);
+          return index;
+        }
+        return swiper.getSlideIndex(elementChildren(swiper.slidesEl, `.${swiper.params.slideClass}[data-hash="${hash}"], swiper-slide[data-hash="${hash}"]`)[0]);
+      }
+    }
+  });
+  const onHashChange = () => {
+    emit("hashChange");
+    const newHash = document2.location.hash.replace("#", "");
+    const activeSlideEl = swiper.virtual && swiper.params.virtual.enabled ? swiper.slidesEl.querySelector(`[data-swiper-slide-index="${swiper.activeIndex}"]`) : swiper.slides[swiper.activeIndex];
+    const activeSlideHash = activeSlideEl ? activeSlideEl.getAttribute("data-hash") : "";
+    if (newHash !== activeSlideHash) {
+      const newIndex = swiper.params.hashNavigation.getSlideIndex(swiper, newHash);
+      if (typeof newIndex === "undefined" || Number.isNaN(newIndex)) return;
+      swiper.slideTo(newIndex);
+    }
+  };
+  const setHash = () => {
+    if (!initialized || !swiper.params.hashNavigation.enabled) return;
+    const activeSlideEl = swiper.virtual && swiper.params.virtual.enabled ? swiper.slidesEl.querySelector(`[data-swiper-slide-index="${swiper.activeIndex}"]`) : swiper.slides[swiper.activeIndex];
+    const activeSlideHash = activeSlideEl ? activeSlideEl.getAttribute("data-hash") || activeSlideEl.getAttribute("data-history") : "";
+    if (swiper.params.hashNavigation.replaceState && window2.history && window2.history.replaceState) {
+      window2.history.replaceState(null, null, `#${activeSlideHash}` || "");
+      emit("hashSet");
+    } else {
+      document2.location.hash = activeSlideHash || "";
+      emit("hashSet");
+    }
+  };
+  const init = () => {
+    if (!swiper.params.hashNavigation.enabled || swiper.params.history && swiper.params.history.enabled) return;
+    initialized = true;
+    const hash = document2.location.hash.replace("#", "");
+    if (hash) {
+      const speed = 0;
+      const index = swiper.params.hashNavigation.getSlideIndex(swiper, hash);
+      swiper.slideTo(index || 0, speed, swiper.params.runCallbacksOnInit, true);
+    }
+    if (swiper.params.hashNavigation.watchState) {
+      window2.addEventListener("hashchange", onHashChange);
+    }
+  };
+  const destroy = () => {
+    if (swiper.params.hashNavigation.watchState) {
+      window2.removeEventListener("hashchange", onHashChange);
+    }
+  };
+  on("init", () => {
+    if (swiper.params.hashNavigation.enabled) {
+      init();
+    }
+  });
+  on("destroy", () => {
+    if (swiper.params.hashNavigation.enabled) {
+      destroy();
+    }
+  });
+  on("transitionEnd _freeModeNoMomentumRelease", () => {
+    if (initialized) {
+      setHash();
+    }
+  });
+  on("slideChange", () => {
+    if (initialized && swiper.params.cssMode) {
+      setHash();
+    }
+  });
+}
+
 // node_modules/swiper/modules/autoplay.mjs
 function Autoplay(_ref) {
   let {
@@ -5102,9 +5192,10 @@ function EffectCoverflow(_ref) {
 export {
   Swiper,
   Navigation,
+  HashNavigation,
   Autoplay,
   Manipulation,
   EffectFade,
   EffectCoverflow
 };
-//# sourceMappingURL=chunk-HQHQQRU7.js.map
+//# sourceMappingURL=chunk-TMPE5RUM.js.map

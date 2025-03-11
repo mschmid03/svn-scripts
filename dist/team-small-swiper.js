@@ -2,6 +2,7 @@ import {
   Autoplay,
   EffectCoverflow,
   EffectFade,
+  Manipulation,
   Navigation,
   Swiper
 } from "./chunk-HQHQQRU7.js";
@@ -20,13 +21,14 @@ var teamController = new Swiper(".team-controller_swiper", {
     modifier: 1,
     slideShadows: false
   },
-  modules: [Navigation, Autoplay, EffectCoverflow],
+  modules: [Manipulation, Navigation, Autoplay, EffectCoverflow],
   navigation: {
     enabled: true,
     nextEl: ".team-controller_button-next",
     prevEl: ".team-controller_button-prev"
   }
 });
+console.log(teamController.activeIndex);
 var teamControlled = new Swiper(".teams-swiper_container", {
   slidesPerView: 1,
   effect: "fade",

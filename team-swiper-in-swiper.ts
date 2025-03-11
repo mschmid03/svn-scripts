@@ -1,150 +1,166 @@
 import Swiper from "swiper";
-import {
-  Autoplay,
-  EffectCoverflow,
-  EffectFade,
-  Manipulation,
-  Navigation,
-} from "swiper/modules";
 import "swiper/css";
+import {
+    Autoplay,
+    EffectCoverflow,
+    EffectFade,
+    Manipulation,
+    Navigation,
+} from "swiper/modules";
 
 // Home Swipers
 const teamController = new Swiper(".team-controller_swiper", {
-  effect: "coverflow",
-  grabCursor: true,
-  centeredSlides: true,
-  loop: true,
-  slidesPerView: "auto",
-  coverflowEffect: {
-    rotate: 0,
-    stretch: -50,
-    depth: 200,
-    modifier: 1,
-    slideShadows: false,
-  },
+    effect: "coverflow",
+    grabCursor: true,
+    centeredSlides: true,
+    loop: true,
+    slidesPerView: "auto",
+    coverflowEffect: {
+        rotate: 0,
+        stretch: -50,
+        depth: 200,
+        modifier: 1,
+        slideShadows: false,
+    },
 
-  modules: [Navigation, Autoplay, EffectCoverflow],
+    modules: [Navigation, Autoplay, EffectCoverflow],
 
-  navigation: {
-    enabled: true,
-    nextEl: ".team-controller_button-next",
-    prevEl: ".team-controller_button-prev",
-  },
+    navigation: {
+        enabled: true,
+        nextEl: ".team-controller_button-next",
+        prevEl: ".team-controller_button-prev",
+    },
 });
 
 const teamControlled = new Swiper(".teams-swiper_container", {
-  slidesPerView: 1,
-  effect: "fade",
-  // enabled: false,
-  centeredSlides: true,
-  initialSlide: 0,
-  speed: 0,
-  allowTouchMove: false,
-  navigation: false,
-  modules: [EffectFade],
-  fadeEffect: {
-    crossFade: true,
-  },
+    slidesPerView: 1,
+    effect: "fade",
+    // enabled: false,
+    centeredSlides: true,
+    initialSlide: 0,
+    speed: 0,
+    allowTouchMove: false,
+    navigation: false,
+    modules: [EffectFade],
+    fadeEffect: {
+        crossFade: true,
+    },
 });
 
 teamController.on("slideChangeTransitionStart", () => {
-  const index = teamController.activeIndex;
-  const slides = teamController.slides;
-  const activeSlide = slides[index];
-  const controllerIndex = activeSlide.getAttribute("controller-index");
-  teamControlled.slideTo(Number(controllerIndex));
+    const index = teamController.activeIndex;
+    const slides = teamController.slides;
+    const activeSlide = slides[index];
+    const controllerIndex = activeSlide.getAttribute("controller-index");
+    teamControlled.slideTo(Number(controllerIndex));
 });
 
 const internalSlider: any[][] = [];
 
 // Select the node that will be observed for mutations
 const targetNodes = document.querySelectorAll(
-  ".team-uebersicht_internal_controller-container",
+    ".team-uebersicht_internal_controller-container"
 );
 console.log(targetNodes);
 // Options for the observer (which mutations to observe)
 const config = { attributes: true, childList: true, subtree: true };
 
 targetNodes.forEach((targetNode, i) => {
-  // Callback function to execute when mutations are observed
-  const callback = (mutationList, observer) => {
-    for (const mutation of mutationList) {
-      if (mutation.addedNodes.length > 0) {
-        internalSlider[i] = [];
-        const teamAttribute = targetNode.getAttribute("team");
-        if (teamAttribute !== null) {
-          // Later, you can stop observing
-          observer.disconnect();
+    // Callback function to execute when mutations are observed
+    const callback = (mutationList, observer) => {
+        for (const mutation of mutationList) {
+            if (mutation.addedNodes.length > 0) {
+                internalSlider[i] = [];
+                const teamAttribute = targetNode.getAttribute("team");
+                if (teamAttribute !== null) {
+                    // Later, you can stop observing
+                    observer.disconnect();
 
-          internalSlider[i][0] = new Swiper(
-            `.team-uebersicht_internal_controller-container[team="${teamAttribute}"] .team-uebersicht_internal_controller`,
-            {
-              effect: "slide",
-              grabCursor: true,
-              centeredSlides: false,
-              spaceBetween: "18",
-              loop: true,
-              slidesPerView: "auto",
+                    internalSlider[i][0] = new Swiper(
+                        `.team-uebersicht_internal_controller-container[team="${teamAttribute}"] .team-uebersicht_internal_controller`,
+                        {
+                            effect: "slide",
+                            grabCursor: true,
+                            centeredSlides: false,
+                            spaceBetween: "18",
+                            loop: true,
+                            initialSlide: 0,
+                            slidesPerView: "auto",
 
-              modules: [Navigation, Manipulation],
+                            modules: [Navigation, Manipulation],
 
-              navigation: {
-                enabled: true,
-                nextEl: `.team-uebersicht_internal_controller-next[team="${teamAttribute}"]`,
-                prevEl: `.team-uebersicht_internal_controller-prev[team="${teamAttribute}"]`,
-              },
-            },
-          );
+                            navigation: {
+                                enabled: true,
+                                nextEl: `.team-uebersicht_internal_controller-next[team="${teamAttribute}"]`,
+                                prevEl: `.team-uebersicht_internal_controller-prev[team="${teamAttribute}"]`,
+                            },
+                        }
+                    );
 
-          const realSlides = internalSlider[i][0].slides;
-          const slidesStrings = [];
-          realSlides.forEach((slide, i) => {
-            slide.setAttribute("controller-index", i);
-            slidesStrings.push(slide.outerHTML);
-          });
-          internalSlider[i][0].removeAllSlides();
-          while (internalSlider[i][0].slides.length < 10) {
-            internalSlider[i][0].appendSlide([...slidesStrings]);
-          }
+                    const realSlides = internalSlider[i][0].slides;
+                    const indexAttribute = "data-swiper-slide-index";
+                    realSlides.sort(
+                        (a, b) =>
+                            a.getAttribute(indexAttribute) >
+                            b.getAttribute(indexAttribute)
+                    );
+                    const slidesStrings = [];
+                    realSlides.forEach((slide, i) => {
+                        const slideIndex = slide.getAttribute(
+                            "data-swiper-slide-index"
+                        );
+                        slide.setAttribute("controller-index", slideIndex);
+                        slidesStrings.push(slide.outerHTML);
+                    });
+                    internalSlider[i][0].removeAllSlides();
+                    while (internalSlider[i][0].slides.length < 10) {
+                        internalSlider[i][0].appendSlide([...slidesStrings]);
+                    }
+                    internalSlider[i][0].slideTo(0);
 
-          internalSlider[i][1] = new Swiper(
-            `.team-uebersicht_internal_controlled[team="${teamAttribute}"]`,
-            {
-              slidesPerView: 1,
-              effect: "fade",
-              // enabled: false,
-              centeredSlides: true,
-              initialSlide: 0,
-              speed: 0,
-              allowTouchMove: false,
-              navigation: false,
-              modules: [EffectFade],
-              fadeEffect: {
-                crossFade: true,
-              },
-            },
-          );
-          internalSlider[i][0].on("slideChangeTransitionStart", () => {
-            const index = internalSlider[i][0].activeIndex;
-            const slides = internalSlider[i][0].slides;
-            const activeSlide = slides[index];
-            const controllerIndex =
-              activeSlide.getAttribute("controller-index");
-            console.log(controllerIndex);
-            internalSlider[i][1].slideTo(Number(controllerIndex));
-            console.log(internalSlider[i][1].activeIndex);
-          });
+                    internalSlider[i][1] = new Swiper(
+                        `.team-uebersicht_internal_controlled[team="${teamAttribute}"]`,
+                        {
+                            slidesPerView: 1,
+                            effect: "fade",
+                            // enabled: false,
+                            centeredSlides: true,
+                            initialSlide: 0,
+                            speed: 0,
+                            allowTouchMove: false,
+                            navigation: false,
+                            modules: [EffectFade],
+                            fadeEffect: {
+                                crossFade: true,
+                            },
+                        }
+                    );
+                    internalSlider[i][0].on(
+                        "slideChangeTransitionStart",
+                        () => {
+                            const index = internalSlider[i][0].activeIndex;
+                            const slides = internalSlider[i][0].slides;
+                            const activeSlide = slides[index];
+                            const controllerIndex =
+                                activeSlide.getAttribute("controller-index");
+                            console.log(controllerIndex);
+                            internalSlider[i][1].slideTo(
+                                Number(controllerIndex)
+                            );
+                            console.log(internalSlider[i][1].activeIndex);
+                        }
+                    );
+                }
+            }
         }
-      }
-    }
-  };
+    };
 
-  // Create an observer instance linked to the callback function
-  const observer = new MutationObserver(callback);
+    // Create an observer instance linked to the callback function
+    const observer = new MutationObserver(callback);
 
-  // Start observing the target node for configured mutations
-  observer.observe(targetNode, config);
+    // Start observing the target node for configured mutations
+    observer.observe(targetNode, config);
 
-  // // Later, you can stop observing
-  // observer.disconnect();
+    // // Later, you can stop observing
+    // observer.disconnect();
 });

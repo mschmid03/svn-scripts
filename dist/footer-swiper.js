@@ -2,7 +2,7 @@ import {
   Autoplay,
   Navigation,
   Swiper
-} from "./chunk-HQHQQRU7.js";
+} from "./chunk-TMPE5RUM.js";
 
 // footer-swiper.ts
 var footerSwiper = new Swiper(".footer_swiper", {

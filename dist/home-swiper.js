@@ -4,7 +4,7 @@ import {
   EffectFade,
   Navigation,
   Swiper
-} from "./chunk-HQHQQRU7.js";
+} from "./chunk-TMPE5RUM.js";
 
 // home-swiper.ts
 var homeController = new Swiper(".home-controller", {

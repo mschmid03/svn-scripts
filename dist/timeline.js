@@ -4259,6 +4259,1273 @@ gsap.registerPlugin(CSSPlugin);
 var gsapWithCSS = gsap.registerPlugin(CSSPlugin) || gsap;
 var TweenMaxWithCSS = gsapWithCSS.core.Tween;
 
+// node_modules/gsap/utils/paths.js
+var _svgPathExp = /[achlmqstvz]|(-?\d*\.?\d*(?:e[\-+]?\d+)?)[0-9]/ig;
+var _numbersExp = /(?:(-)?\d*\.?\d*(?:e[\-+]?\d+)?)[0-9]/ig;
+var _scientific = /[\+\-]?\d*\.?\d+e[\+\-]?\d+/ig;
+var _selectorExp = /(^[#\.][a-z]|[a-y][a-z])/i;
+var _DEG2RAD2 = Math.PI / 180;
+var _RAD2DEG2 = 180 / Math.PI;
+var _sin2 = Math.sin;
+var _cos2 = Math.cos;
+var _abs = Math.abs;
+var _sqrt2 = Math.sqrt;
+var _atan22 = Math.atan2;
+var _largeNum = 1e8;
+var _isString3 = function _isString4(value) {
+  return typeof value === "string";
+};
+var _isNumber3 = function _isNumber4(value) {
+  return typeof value === "number";
+};
+var _isUndefined3 = function _isUndefined4(value) {
+  return typeof value === "undefined";
+};
+var _temp = {};
+var _temp2 = {};
+var _roundingNum = 1e5;
+var _wrapProgress = function _wrapProgress2(progress) {
+  return Math.round((progress + _largeNum) % 1 * _roundingNum) / _roundingNum || (progress < 0 ? 0 : 1);
+};
+var _round3 = function _round4(value) {
+  return Math.round(value * _roundingNum) / _roundingNum || 0;
+};
+var _roundPrecise3 = function _roundPrecise4(value) {
+  return Math.round(value * 1e10) / 1e10 || 0;
+};
+var _splitSegment = function _splitSegment2(rawPath, segIndex, i, t) {
+  var segment = rawPath[segIndex], shift = t === 1 ? 6 : subdivideSegment(segment, i, t);
+  if ((shift || !t) && shift + i + 2 < segment.length) {
+    rawPath.splice(segIndex, 0, segment.slice(0, i + shift + 2));
+    segment.splice(0, i + shift);
+    return 1;
+  }
+};
+var _getSampleIndex = function _getSampleIndex2(samples, length, progress) {
+  var l = samples.length, i = ~~(progress * l);
+  if (samples[i] > length) {
+    while (--i && samples[i] > length) {
+    }
+    i < 0 && (i = 0);
+  } else {
+    while (samples[++i] < length && i < l) {
+    }
+  }
+  return i < l ? i : l - 1;
+};
+var _reverseRawPath = function _reverseRawPath2(rawPath, skipOuter) {
+  var i = rawPath.length;
+  skipOuter || rawPath.reverse();
+  while (i--) {
+    rawPath[i].reversed || reverseSegment(rawPath[i]);
+  }
+};
+var _copyMetaData = function _copyMetaData2(source, copy) {
+  copy.totalLength = source.totalLength;
+  if (source.samples) {
+    copy.samples = source.samples.slice(0);
+    copy.lookup = source.lookup.slice(0);
+    copy.minLength = source.minLength;
+    copy.resolution = source.resolution;
+  } else if (source.totalPoints) {
+    copy.totalPoints = source.totalPoints;
+  }
+  return copy;
+};
+var _appendOrMerge = function _appendOrMerge2(rawPath, segment) {
+  var index = rawPath.length, prevSeg = rawPath[index - 1] || [], l = prevSeg.length;
+  if (index && segment[0] === prevSeg[l - 2] && segment[1] === prevSeg[l - 1]) {
+    segment = prevSeg.concat(segment.slice(2));
+    index--;
+  }
+  rawPath[index] = segment;
+};
+function getRawPath(value) {
+  value = _isString3(value) && _selectorExp.test(value) ? document.querySelector(value) || value : value;
+  var e = value.getAttribute ? value : 0, rawPath;
+  if (e && (value = value.getAttribute("d"))) {
+    if (!e._gsPath) {
+      e._gsPath = {};
+    }
+    rawPath = e._gsPath[value];
+    return rawPath && !rawPath._dirty ? rawPath : e._gsPath[value] = stringToRawPath(value);
+  }
+  return !value ? console.warn("Expecting a <path> element or an SVG path data string") : _isString3(value) ? stringToRawPath(value) : _isNumber3(value[0]) ? [value] : value;
+}
+function copyRawPath(rawPath) {
+  var a = [], i = 0;
+  for (; i < rawPath.length; i++) {
+    a[i] = _copyMetaData(rawPath[i], rawPath[i].slice(0));
+  }
+  return _copyMetaData(rawPath, a);
+}
+function reverseSegment(segment) {
+  var i = 0, y;
+  segment.reverse();
+  for (; i < segment.length; i += 2) {
+    y = segment[i];
+    segment[i] = segment[i + 1];
+    segment[i + 1] = y;
+  }
+  segment.reversed = !segment.reversed;
+}
+var _createPath = function _createPath2(e, ignore) {
+  var path = document.createElementNS("http://www.w3.org/2000/svg", "path"), attr = [].slice.call(e.attributes), i = attr.length, name;
+  ignore = "," + ignore + ",";
+  while (--i > -1) {
+    name = attr[i].nodeName.toLowerCase();
+    if (ignore.indexOf("," + name + ",") < 0) {
+      path.setAttributeNS(null, name, attr[i].nodeValue);
+    }
+  }
+  return path;
+};
+var _typeAttrs = {
+  rect: "rx,ry,x,y,width,height",
+  circle: "r,cx,cy",
+  ellipse: "rx,ry,cx,cy",
+  line: "x1,x2,y1,y2"
+};
+var _attrToObj = function _attrToObj2(e, attrs) {
+  var props = attrs ? attrs.split(",") : [], obj = {}, i = props.length;
+  while (--i > -1) {
+    obj[props[i]] = +e.getAttribute(props[i]) || 0;
+  }
+  return obj;
+};
+function convertToPath(element, swap) {
+  var type = element.tagName.toLowerCase(), circ = 0.552284749831, data, x, y, r, ry, path, rcirc, rycirc, points, w, h, x2, x3, x4, x5, x6, y2, y3, y4, y5, y6, attr;
+  if (type === "path" || !element.getBBox) {
+    return element;
+  }
+  path = _createPath(element, "x,y,width,height,cx,cy,rx,ry,r,x1,x2,y1,y2,points");
+  attr = _attrToObj(element, _typeAttrs[type]);
+  if (type === "rect") {
+    r = attr.rx;
+    ry = attr.ry || r;
+    x = attr.x;
+    y = attr.y;
+    w = attr.width - r * 2;
+    h = attr.height - ry * 2;
+    if (r || ry) {
+      x2 = x + r * (1 - circ);
+      x3 = x + r;
+      x4 = x3 + w;
+      x5 = x4 + r * circ;
+      x6 = x4 + r;
+      y2 = y + ry * (1 - circ);
+      y3 = y + ry;
+      y4 = y3 + h;
+      y5 = y4 + ry * circ;
+      y6 = y4 + ry;
+      data = "M" + x6 + "," + y3 + " V" + y4 + " C" + [x6, y5, x5, y6, x4, y6, x4 - (x4 - x3) / 3, y6, x3 + (x4 - x3) / 3, y6, x3, y6, x2, y6, x, y5, x, y4, x, y4 - (y4 - y3) / 3, x, y3 + (y4 - y3) / 3, x, y3, x, y2, x2, y, x3, y, x3 + (x4 - x3) / 3, y, x4 - (x4 - x3) / 3, y, x4, y, x5, y, x6, y2, x6, y3].join(",") + "z";
+    } else {
+      data = "M" + (x + w) + "," + y + " v" + h + " h" + -w + " v" + -h + " h" + w + "z";
+    }
+  } else if (type === "circle" || type === "ellipse") {
+    if (type === "circle") {
+      r = ry = attr.r;
+      rycirc = r * circ;
+    } else {
+      r = attr.rx;
+      ry = attr.ry;
+      rycirc = ry * circ;
+    }
+    x = attr.cx;
+    y = attr.cy;
+    rcirc = r * circ;
+    data = "M" + (x + r) + "," + y + " C" + [x + r, y + rycirc, x + rcirc, y + ry, x, y + ry, x - rcirc, y + ry, x - r, y + rycirc, x - r, y, x - r, y - rycirc, x - rcirc, y - ry, x, y - ry, x + rcirc, y - ry, x + r, y - rycirc, x + r, y].join(",") + "z";
+  } else if (type === "line") {
+    data = "M" + attr.x1 + "," + attr.y1 + " L" + attr.x2 + "," + attr.y2;
+  } else if (type === "polyline" || type === "polygon") {
+    points = (element.getAttribute("points") + "").match(_numbersExp) || [];
+    x = points.shift();
+    y = points.shift();
+    data = "M" + x + "," + y + " L" + points.join(",");
+    if (type === "polygon") {
+      data += "," + x + "," + y + "z";
+    }
+  }
+  path.setAttribute("d", rawPathToString(path._gsRawPath = stringToRawPath(data)));
+  if (swap && element.parentNode) {
+    element.parentNode.insertBefore(path, element);
+    element.parentNode.removeChild(element);
+  }
+  return path;
+}
+function getRotationAtBezierT(segment, i, t) {
+  var a = segment[i], b = segment[i + 2], c = segment[i + 4], x;
+  a += (b - a) * t;
+  b += (c - b) * t;
+  a += (b - a) * t;
+  x = b + (c + (segment[i + 6] - c) * t - b) * t - a;
+  a = segment[i + 1];
+  b = segment[i + 3];
+  c = segment[i + 5];
+  a += (b - a) * t;
+  b += (c - b) * t;
+  a += (b - a) * t;
+  return _round3(_atan22(b + (c + (segment[i + 7] - c) * t - b) * t - a, x) * _RAD2DEG2);
+}
+function sliceRawPath(rawPath, start, end) {
+  end = _isUndefined3(end) ? 1 : _roundPrecise3(end) || 0;
+  start = _roundPrecise3(start) || 0;
+  var loops = Math.max(0, ~~(_abs(end - start) - 1e-8)), path = copyRawPath(rawPath);
+  if (start > end) {
+    start = 1 - start;
+    end = 1 - end;
+    _reverseRawPath(path);
+    path.totalLength = 0;
+  }
+  if (start < 0 || end < 0) {
+    var offset = Math.abs(~~Math.min(start, end)) + 1;
+    start += offset;
+    end += offset;
+  }
+  path.totalLength || cacheRawPathMeasurements(path);
+  var wrap3 = end > 1, s = getProgressData(path, start, _temp, true), e = getProgressData(path, end, _temp2), eSeg = e.segment, sSeg = s.segment, eSegIndex = e.segIndex, sSegIndex = s.segIndex, ei = e.i, si = s.i, sameSegment = sSegIndex === eSegIndex, sameBezier = ei === si && sameSegment, wrapsBehind, sShift, eShift, i, copy, totalSegments, l, j;
+  if (wrap3 || loops) {
+    wrapsBehind = eSegIndex < sSegIndex || sameSegment && ei < si || sameBezier && e.t < s.t;
+    if (_splitSegment(path, sSegIndex, si, s.t)) {
+      sSegIndex++;
+      if (!wrapsBehind) {
+        eSegIndex++;
+        if (sameBezier) {
+          e.t = (e.t - s.t) / (1 - s.t);
+          ei = 0;
+        } else if (sameSegment) {
+          ei -= si;
+        }
+      }
+    }
+    if (Math.abs(1 - (end - start)) < 1e-5) {
+      eSegIndex = sSegIndex - 1;
+    } else if (!e.t && eSegIndex) {
+      eSegIndex--;
+    } else if (_splitSegment(path, eSegIndex, ei, e.t) && wrapsBehind) {
+      sSegIndex++;
+    }
+    if (s.t === 1) {
+      sSegIndex = (sSegIndex + 1) % path.length;
+    }
+    copy = [];
+    totalSegments = path.length;
+    l = 1 + totalSegments * loops;
+    j = sSegIndex;
+    l += (totalSegments - sSegIndex + eSegIndex) % totalSegments;
+    for (i = 0; i < l; i++) {
+      _appendOrMerge(copy, path[j++ % totalSegments]);
+    }
+    path = copy;
+  } else {
+    eShift = e.t === 1 ? 6 : subdivideSegment(eSeg, ei, e.t);
+    if (start !== end) {
+      sShift = subdivideSegment(sSeg, si, sameBezier ? s.t / e.t : s.t);
+      sameSegment && (eShift += sShift);
+      eSeg.splice(ei + eShift + 2);
+      (sShift || si) && sSeg.splice(0, si + sShift);
+      i = path.length;
+      while (i--) {
+        (i < sSegIndex || i > eSegIndex) && path.splice(i, 1);
+      }
+    } else {
+      eSeg.angle = getRotationAtBezierT(eSeg, ei + eShift, 0);
+      ei += eShift;
+      s = eSeg[ei];
+      e = eSeg[ei + 1];
+      eSeg.length = eSeg.totalLength = 0;
+      eSeg.totalPoints = path.totalPoints = 8;
+      eSeg.push(s, e, s, e, s, e, s, e);
+    }
+  }
+  path.totalLength = 0;
+  return path;
+}
+function measureSegment(segment, startIndex, bezierQty) {
+  startIndex = startIndex || 0;
+  if (!segment.samples) {
+    segment.samples = [];
+    segment.lookup = [];
+  }
+  var resolution = ~~segment.resolution || 12, inc = 1 / resolution, endIndex = bezierQty ? startIndex + bezierQty * 6 + 1 : segment.length, x1 = segment[startIndex], y1 = segment[startIndex + 1], samplesIndex = startIndex ? startIndex / 6 * resolution : 0, samples = segment.samples, lookup = segment.lookup, min = (startIndex ? segment.minLength : _largeNum) || _largeNum, prevLength = samples[samplesIndex + bezierQty * resolution - 1], length = startIndex ? samples[samplesIndex - 1] : 0, i, j, x4, x3, x2, xd, xd1, y4, y3, y2, yd, yd1, inv, t, lengthIndex, l, segLength;
+  samples.length = lookup.length = 0;
+  for (j = startIndex + 2; j < endIndex; j += 6) {
+    x4 = segment[j + 4] - x1;
+    x3 = segment[j + 2] - x1;
+    x2 = segment[j] - x1;
+    y4 = segment[j + 5] - y1;
+    y3 = segment[j + 3] - y1;
+    y2 = segment[j + 1] - y1;
+    xd = xd1 = yd = yd1 = 0;
+    if (_abs(x4) < 0.01 && _abs(y4) < 0.01 && _abs(x2) + _abs(y2) < 0.01) {
+      if (segment.length > 8) {
+        segment.splice(j, 6);
+        j -= 6;
+        endIndex -= 6;
+      }
+    } else {
+      for (i = 1; i <= resolution; i++) {
+        t = inc * i;
+        inv = 1 - t;
+        xd = xd1 - (xd1 = (t * t * x4 + 3 * inv * (t * x3 + inv * x2)) * t);
+        yd = yd1 - (yd1 = (t * t * y4 + 3 * inv * (t * y3 + inv * y2)) * t);
+        l = _sqrt2(yd * yd + xd * xd);
+        if (l < min) {
+          min = l;
+        }
+        length += l;
+        samples[samplesIndex++] = length;
+      }
+    }
+    x1 += x4;
+    y1 += y4;
+  }
+  if (prevLength) {
+    prevLength -= length;
+    for (; samplesIndex < samples.length; samplesIndex++) {
+      samples[samplesIndex] += prevLength;
+    }
+  }
+  if (samples.length && min) {
+    segment.totalLength = segLength = samples[samples.length - 1] || 0;
+    segment.minLength = min;
+    if (segLength / min < 9999) {
+      l = lengthIndex = 0;
+      for (i = 0; i < segLength; i += min) {
+        lookup[l++] = samples[lengthIndex] < i ? ++lengthIndex : lengthIndex;
+      }
+    }
+  } else {
+    segment.totalLength = samples[0] = 0;
+  }
+  return startIndex ? length - samples[startIndex / 2 - 1] : length;
+}
+function cacheRawPathMeasurements(rawPath, resolution) {
+  var pathLength, points, i;
+  for (i = pathLength = points = 0; i < rawPath.length; i++) {
+    rawPath[i].resolution = ~~resolution || 12;
+    points += rawPath[i].length;
+    pathLength += measureSegment(rawPath[i]);
+  }
+  rawPath.totalPoints = points;
+  rawPath.totalLength = pathLength;
+  return rawPath;
+}
+function subdivideSegment(segment, i, t) {
+  if (t <= 0 || t >= 1) {
+    return 0;
+  }
+  var ax = segment[i], ay = segment[i + 1], cp1x = segment[i + 2], cp1y = segment[i + 3], cp2x = segment[i + 4], cp2y = segment[i + 5], bx = segment[i + 6], by = segment[i + 7], x1a = ax + (cp1x - ax) * t, x2 = cp1x + (cp2x - cp1x) * t, y1a = ay + (cp1y - ay) * t, y2 = cp1y + (cp2y - cp1y) * t, x1 = x1a + (x2 - x1a) * t, y1 = y1a + (y2 - y1a) * t, x2a = cp2x + (bx - cp2x) * t, y2a = cp2y + (by - cp2y) * t;
+  x2 += (x2a - x2) * t;
+  y2 += (y2a - y2) * t;
+  segment.splice(
+    i + 2,
+    4,
+    _round3(x1a),
+    //first control point
+    _round3(y1a),
+    _round3(x1),
+    //second control point
+    _round3(y1),
+    _round3(x1 + (x2 - x1) * t),
+    //new fabricated anchor on line
+    _round3(y1 + (y2 - y1) * t),
+    _round3(x2),
+    //third control point
+    _round3(y2),
+    _round3(x2a),
+    //fourth control point
+    _round3(y2a)
+  );
+  segment.samples && segment.samples.splice(i / 6 * segment.resolution | 0, 0, 0, 0, 0, 0, 0, 0);
+  return 6;
+}
+function getProgressData(rawPath, progress, decoratee, pushToNextIfAtEnd) {
+  decoratee = decoratee || {};
+  rawPath.totalLength || cacheRawPathMeasurements(rawPath);
+  if (progress < 0 || progress > 1) {
+    progress = _wrapProgress(progress);
+  }
+  var segIndex = 0, segment = rawPath[0], samples, resolution, length, min, max, i, t;
+  if (!progress) {
+    t = i = segIndex = 0;
+    segment = rawPath[0];
+  } else if (progress === 1) {
+    t = 1;
+    segIndex = rawPath.length - 1;
+    segment = rawPath[segIndex];
+    i = segment.length - 8;
+  } else {
+    if (rawPath.length > 1) {
+      length = rawPath.totalLength * progress;
+      max = i = 0;
+      while ((max += rawPath[i++].totalLength) < length) {
+        segIndex = i;
+      }
+      segment = rawPath[segIndex];
+      min = max - segment.totalLength;
+      progress = (length - min) / (max - min) || 0;
+    }
+    samples = segment.samples;
+    resolution = segment.resolution;
+    length = segment.totalLength * progress;
+    i = segment.lookup.length ? segment.lookup[~~(length / segment.minLength)] || 0 : _getSampleIndex(samples, length, progress);
+    min = i ? samples[i - 1] : 0;
+    max = samples[i];
+    if (max < length) {
+      min = max;
+      max = samples[++i];
+    }
+    t = 1 / resolution * ((length - min) / (max - min) + i % resolution);
+    i = ~~(i / resolution) * 6;
+    if (pushToNextIfAtEnd && t === 1) {
+      if (i + 6 < segment.length) {
+        i += 6;
+        t = 0;
+      } else if (segIndex + 1 < rawPath.length) {
+        i = t = 0;
+        segment = rawPath[++segIndex];
+      }
+    }
+  }
+  decoratee.t = t;
+  decoratee.i = i;
+  decoratee.path = rawPath;
+  decoratee.segment = segment;
+  decoratee.segIndex = segIndex;
+  return decoratee;
+}
+function getPositionOnPath(rawPath, progress, includeAngle, point) {
+  var segment = rawPath[0], result = point || {}, samples, resolution, length, min, max, i, t, a, inv;
+  if (progress < 0 || progress > 1) {
+    progress = _wrapProgress(progress);
+  }
+  segment.lookup || cacheRawPathMeasurements(rawPath);
+  if (rawPath.length > 1) {
+    length = rawPath.totalLength * progress;
+    max = i = 0;
+    while ((max += rawPath[i++].totalLength) < length) {
+      segment = rawPath[i];
+    }
+    min = max - segment.totalLength;
+    progress = (length - min) / (max - min) || 0;
+  }
+  samples = segment.samples;
+  resolution = segment.resolution;
+  length = segment.totalLength * progress;
+  i = segment.lookup.length ? segment.lookup[progress < 1 ? ~~(length / segment.minLength) : segment.lookup.length - 1] || 0 : _getSampleIndex(samples, length, progress);
+  min = i ? samples[i - 1] : 0;
+  max = samples[i];
+  if (max < length) {
+    min = max;
+    max = samples[++i];
+  }
+  t = 1 / resolution * ((length - min) / (max - min) + i % resolution) || 0;
+  inv = 1 - t;
+  i = ~~(i / resolution) * 6;
+  a = segment[i];
+  result.x = _round3((t * t * (segment[i + 6] - a) + 3 * inv * (t * (segment[i + 4] - a) + inv * (segment[i + 2] - a))) * t + a);
+  result.y = _round3((t * t * (segment[i + 7] - (a = segment[i + 1])) + 3 * inv * (t * (segment[i + 5] - a) + inv * (segment[i + 3] - a))) * t + a);
+  if (includeAngle) {
+    result.angle = segment.totalLength ? getRotationAtBezierT(segment, i, t >= 1 ? 1 - 1e-9 : t ? t : 1e-9) : segment.angle || 0;
+  }
+  return result;
+}
+function transformRawPath(rawPath, a, b, c, d, tx, ty) {
+  var j = rawPath.length, segment, l, i, x, y;
+  while (--j > -1) {
+    segment = rawPath[j];
+    l = segment.length;
+    for (i = 0; i < l; i += 2) {
+      x = segment[i];
+      y = segment[i + 1];
+      segment[i] = x * a + y * c + tx;
+      segment[i + 1] = x * b + y * d + ty;
+    }
+  }
+  rawPath._dirty = 1;
+  return rawPath;
+}
+function arcToSegment(lastX, lastY, rx, ry, angle, largeArcFlag, sweepFlag, x, y) {
+  if (lastX === x && lastY === y) {
+    return;
+  }
+  rx = _abs(rx);
+  ry = _abs(ry);
+  var angleRad = angle % 360 * _DEG2RAD2, cosAngle = _cos2(angleRad), sinAngle = _sin2(angleRad), PI = Math.PI, TWOPI = PI * 2, dx2 = (lastX - x) / 2, dy2 = (lastY - y) / 2, x1 = cosAngle * dx2 + sinAngle * dy2, y1 = -sinAngle * dx2 + cosAngle * dy2, x1_sq = x1 * x1, y1_sq = y1 * y1, radiiCheck = x1_sq / (rx * rx) + y1_sq / (ry * ry);
+  if (radiiCheck > 1) {
+    rx = _sqrt2(radiiCheck) * rx;
+    ry = _sqrt2(radiiCheck) * ry;
+  }
+  var rx_sq = rx * rx, ry_sq = ry * ry, sq = (rx_sq * ry_sq - rx_sq * y1_sq - ry_sq * x1_sq) / (rx_sq * y1_sq + ry_sq * x1_sq);
+  if (sq < 0) {
+    sq = 0;
+  }
+  var coef = (largeArcFlag === sweepFlag ? -1 : 1) * _sqrt2(sq), cx1 = coef * (rx * y1 / ry), cy1 = coef * -(ry * x1 / rx), sx2 = (lastX + x) / 2, sy2 = (lastY + y) / 2, cx = sx2 + (cosAngle * cx1 - sinAngle * cy1), cy = sy2 + (sinAngle * cx1 + cosAngle * cy1), ux = (x1 - cx1) / rx, uy = (y1 - cy1) / ry, vx = (-x1 - cx1) / rx, vy = (-y1 - cy1) / ry, temp = ux * ux + uy * uy, angleStart = (uy < 0 ? -1 : 1) * Math.acos(ux / _sqrt2(temp)), angleExtent = (ux * vy - uy * vx < 0 ? -1 : 1) * Math.acos((ux * vx + uy * vy) / _sqrt2(temp * (vx * vx + vy * vy)));
+  isNaN(angleExtent) && (angleExtent = PI);
+  if (!sweepFlag && angleExtent > 0) {
+    angleExtent -= TWOPI;
+  } else if (sweepFlag && angleExtent < 0) {
+    angleExtent += TWOPI;
+  }
+  angleStart %= TWOPI;
+  angleExtent %= TWOPI;
+  var segments = Math.ceil(_abs(angleExtent) / (TWOPI / 4)), rawPath = [], angleIncrement = angleExtent / segments, controlLength = 4 / 3 * _sin2(angleIncrement / 2) / (1 + _cos2(angleIncrement / 2)), ma = cosAngle * rx, mb = sinAngle * rx, mc = sinAngle * -ry, md = cosAngle * ry, i;
+  for (i = 0; i < segments; i++) {
+    angle = angleStart + i * angleIncrement;
+    x1 = _cos2(angle);
+    y1 = _sin2(angle);
+    ux = _cos2(angle += angleIncrement);
+    uy = _sin2(angle);
+    rawPath.push(x1 - controlLength * y1, y1 + controlLength * x1, ux + controlLength * uy, uy - controlLength * ux, ux, uy);
+  }
+  for (i = 0; i < rawPath.length; i += 2) {
+    x1 = rawPath[i];
+    y1 = rawPath[i + 1];
+    rawPath[i] = x1 * ma + y1 * mc + cx;
+    rawPath[i + 1] = x1 * mb + y1 * md + cy;
+  }
+  rawPath[i - 2] = x;
+  rawPath[i - 1] = y;
+  return rawPath;
+}
+function stringToRawPath(d) {
+  var a = (d + "").replace(_scientific, function(m) {
+    var n = +m;
+    return n < 1e-4 && n > -1e-4 ? 0 : n;
+  }).match(_svgPathExp) || [], path = [], relativeX = 0, relativeY = 0, twoThirds = 2 / 3, elements = a.length, points = 0, errorMessage = "ERROR: malformed path: " + d, i, j, x, y, command, isRelative, segment, startX, startY, difX, difY, beziers, prevCommand, flag1, flag2, line = function line2(sx, sy, ex, ey) {
+    difX = (ex - sx) / 3;
+    difY = (ey - sy) / 3;
+    segment.push(sx + difX, sy + difY, ex - difX, ey - difY, ex, ey);
+  };
+  if (!d || !isNaN(a[0]) || isNaN(a[1])) {
+    console.log(errorMessage);
+    return path;
+  }
+  for (i = 0; i < elements; i++) {
+    prevCommand = command;
+    if (isNaN(a[i])) {
+      command = a[i].toUpperCase();
+      isRelative = command !== a[i];
+    } else {
+      i--;
+    }
+    x = +a[i + 1];
+    y = +a[i + 2];
+    if (isRelative) {
+      x += relativeX;
+      y += relativeY;
+    }
+    if (!i) {
+      startX = x;
+      startY = y;
+    }
+    if (command === "M") {
+      if (segment) {
+        if (segment.length < 8) {
+          path.length -= 1;
+        } else {
+          points += segment.length;
+        }
+      }
+      relativeX = startX = x;
+      relativeY = startY = y;
+      segment = [x, y];
+      path.push(segment);
+      i += 2;
+      command = "L";
+    } else if (command === "C") {
+      if (!segment) {
+        segment = [0, 0];
+      }
+      if (!isRelative) {
+        relativeX = relativeY = 0;
+      }
+      segment.push(x, y, relativeX + a[i + 3] * 1, relativeY + a[i + 4] * 1, relativeX += a[i + 5] * 1, relativeY += a[i + 6] * 1);
+      i += 6;
+    } else if (command === "S") {
+      difX = relativeX;
+      difY = relativeY;
+      if (prevCommand === "C" || prevCommand === "S") {
+        difX += relativeX - segment[segment.length - 4];
+        difY += relativeY - segment[segment.length - 3];
+      }
+      if (!isRelative) {
+        relativeX = relativeY = 0;
+      }
+      segment.push(difX, difY, x, y, relativeX += a[i + 3] * 1, relativeY += a[i + 4] * 1);
+      i += 4;
+    } else if (command === "Q") {
+      difX = relativeX + (x - relativeX) * twoThirds;
+      difY = relativeY + (y - relativeY) * twoThirds;
+      if (!isRelative) {
+        relativeX = relativeY = 0;
+      }
+      relativeX += a[i + 3] * 1;
+      relativeY += a[i + 4] * 1;
+      segment.push(difX, difY, relativeX + (x - relativeX) * twoThirds, relativeY + (y - relativeY) * twoThirds, relativeX, relativeY);
+      i += 4;
+    } else if (command === "T") {
+      difX = relativeX - segment[segment.length - 4];
+      difY = relativeY - segment[segment.length - 3];
+      segment.push(relativeX + difX, relativeY + difY, x + (relativeX + difX * 1.5 - x) * twoThirds, y + (relativeY + difY * 1.5 - y) * twoThirds, relativeX = x, relativeY = y);
+      i += 2;
+    } else if (command === "H") {
+      line(relativeX, relativeY, relativeX = x, relativeY);
+      i += 1;
+    } else if (command === "V") {
+      line(relativeX, relativeY, relativeX, relativeY = x + (isRelative ? relativeY - relativeX : 0));
+      i += 1;
+    } else if (command === "L" || command === "Z") {
+      if (command === "Z") {
+        x = startX;
+        y = startY;
+        segment.closed = true;
+      }
+      if (command === "L" || _abs(relativeX - x) > 0.5 || _abs(relativeY - y) > 0.5) {
+        line(relativeX, relativeY, x, y);
+        if (command === "L") {
+          i += 2;
+        }
+      }
+      relativeX = x;
+      relativeY = y;
+    } else if (command === "A") {
+      flag1 = a[i + 4];
+      flag2 = a[i + 5];
+      difX = a[i + 6];
+      difY = a[i + 7];
+      j = 7;
+      if (flag1.length > 1) {
+        if (flag1.length < 3) {
+          difY = difX;
+          difX = flag2;
+          j--;
+        } else {
+          difY = flag2;
+          difX = flag1.substr(2);
+          j -= 2;
+        }
+        flag2 = flag1.charAt(1);
+        flag1 = flag1.charAt(0);
+      }
+      beziers = arcToSegment(relativeX, relativeY, +a[i + 1], +a[i + 2], +a[i + 3], +flag1, +flag2, (isRelative ? relativeX : 0) + difX * 1, (isRelative ? relativeY : 0) + difY * 1);
+      i += j;
+      if (beziers) {
+        for (j = 0; j < beziers.length; j++) {
+          segment.push(beziers[j]);
+        }
+      }
+      relativeX = segment[segment.length - 2];
+      relativeY = segment[segment.length - 1];
+    } else {
+      console.log(errorMessage);
+    }
+  }
+  i = segment.length;
+  if (i < 6) {
+    path.pop();
+    i = 0;
+  } else if (segment[0] === segment[i - 2] && segment[1] === segment[i - 1]) {
+    segment.closed = true;
+  }
+  path.totalPoints = points + i;
+  return path;
+}
+function flatPointsToSegment(points, curviness) {
+  if (curviness === void 0) {
+    curviness = 1;
+  }
+  var x = points[0], y = 0, segment = [x, y], i = 2;
+  for (; i < points.length; i += 2) {
+    segment.push(x, y, points[i], y = (points[i] - x) * curviness / 2, x = points[i], -y);
+  }
+  return segment;
+}
+function pointsToSegment(points, curviness) {
+  _abs(points[0] - points[2]) < 1e-4 && _abs(points[1] - points[3]) < 1e-4 && (points = points.slice(2));
+  var l = points.length - 2, x = +points[0], y = +points[1], nextX = +points[2], nextY = +points[3], segment = [x, y, x, y], dx2 = nextX - x, dy2 = nextY - y, closed = Math.abs(points[l] - x) < 1e-3 && Math.abs(points[l + 1] - y) < 1e-3, prevX, prevY, i, dx1, dy1, r1, r2, r3, tl2, mx1, mx2, mxm, my1, my2, mym;
+  if (closed) {
+    points.push(nextX, nextY);
+    nextX = x;
+    nextY = y;
+    x = points[l - 2];
+    y = points[l - 1];
+    points.unshift(x, y);
+    l += 4;
+  }
+  curviness = curviness || curviness === 0 ? +curviness : 1;
+  for (i = 2; i < l; i += 2) {
+    prevX = x;
+    prevY = y;
+    x = nextX;
+    y = nextY;
+    nextX = +points[i + 2];
+    nextY = +points[i + 3];
+    if (x === nextX && y === nextY) {
+      continue;
+    }
+    dx1 = dx2;
+    dy1 = dy2;
+    dx2 = nextX - x;
+    dy2 = nextY - y;
+    r1 = _sqrt2(dx1 * dx1 + dy1 * dy1);
+    r2 = _sqrt2(dx2 * dx2 + dy2 * dy2);
+    r3 = _sqrt2(Math.pow(dx2 / r2 + dx1 / r1, 2) + Math.pow(dy2 / r2 + dy1 / r1, 2));
+    tl2 = (r1 + r2) * curviness * 0.25 / r3;
+    mx1 = x - (x - prevX) * (r1 ? tl2 / r1 : 0);
+    mx2 = x + (nextX - x) * (r2 ? tl2 / r2 : 0);
+    mxm = x - (mx1 + ((mx2 - mx1) * (r1 * 3 / (r1 + r2) + 0.5) / 4 || 0));
+    my1 = y - (y - prevY) * (r1 ? tl2 / r1 : 0);
+    my2 = y + (nextY - y) * (r2 ? tl2 / r2 : 0);
+    mym = y - (my1 + ((my2 - my1) * (r1 * 3 / (r1 + r2) + 0.5) / 4 || 0));
+    if (x !== prevX || y !== prevY) {
+      segment.push(
+        _round3(mx1 + mxm),
+        // first control point
+        _round3(my1 + mym),
+        _round3(x),
+        // anchor
+        _round3(y),
+        _round3(mx2 + mxm),
+        // second control point
+        _round3(my2 + mym)
+      );
+    }
+  }
+  x !== nextX || y !== nextY || segment.length < 4 ? segment.push(_round3(nextX), _round3(nextY), _round3(nextX), _round3(nextY)) : segment.length -= 2;
+  if (segment.length === 2) {
+    segment.push(x, y, x, y, x, y);
+  } else if (closed) {
+    segment.splice(0, 6);
+    segment.length = segment.length - 6;
+  }
+  return segment;
+}
+function rawPathToString(rawPath) {
+  if (_isNumber3(rawPath[0])) {
+    rawPath = [rawPath];
+  }
+  var result = "", l = rawPath.length, sl, s, i, segment;
+  for (s = 0; s < l; s++) {
+    segment = rawPath[s];
+    result += "M" + _round3(segment[0]) + "," + _round3(segment[1]) + " C";
+    sl = segment.length;
+    for (i = 2; i < sl; i++) {
+      result += _round3(segment[i++]) + "," + _round3(segment[i++]) + " " + _round3(segment[i++]) + "," + _round3(segment[i++]) + " " + _round3(segment[i++]) + "," + _round3(segment[i]) + " ";
+    }
+    if (segment.closed) {
+      result += "z";
+    }
+  }
+  return result;
+}
+
+// node_modules/gsap/utils/matrix.js
+var _doc3;
+var _win3;
+var _docElement2;
+var _body;
+var _divContainer;
+var _svgContainer;
+var _identityMatrix;
+var _gEl;
+var _transformProp2 = "transform";
+var _transformOriginProp2 = _transformProp2 + "Origin";
+var _hasOffsetBug;
+var _setDoc = function _setDoc2(element) {
+  var doc = element.ownerDocument || element;
+  if (!(_transformProp2 in element.style) && "msTransform" in element.style) {
+    _transformProp2 = "msTransform";
+    _transformOriginProp2 = _transformProp2 + "Origin";
+  }
+  while (doc.parentNode && (doc = doc.parentNode)) {
+  }
+  _win3 = window;
+  _identityMatrix = new Matrix2D();
+  if (doc) {
+    _doc3 = doc;
+    _docElement2 = doc.documentElement;
+    _body = doc.body;
+    _gEl = _doc3.createElementNS("http://www.w3.org/2000/svg", "g");
+    _gEl.style.transform = "none";
+    var d1 = doc.createElement("div"), d2 = doc.createElement("div"), root = doc && (doc.body || doc.firstElementChild);
+    if (root && root.appendChild) {
+      root.appendChild(d1);
+      d1.appendChild(d2);
+      d1.setAttribute("style", "position:static;transform:translate3d(0,0,1px)");
+      _hasOffsetBug = d2.offsetParent !== d1;
+      root.removeChild(d1);
+    }
+  }
+  return doc;
+};
+var _forceNonZeroScale = function _forceNonZeroScale2(e) {
+  var a, cache;
+  while (e && e !== _body) {
+    cache = e._gsap;
+    cache && cache.uncache && cache.get(e, "x");
+    if (cache && !cache.scaleX && !cache.scaleY && cache.renderTransform) {
+      cache.scaleX = cache.scaleY = 1e-4;
+      cache.renderTransform(1, cache);
+      a ? a.push(cache) : a = [cache];
+    }
+    e = e.parentNode;
+  }
+  return a;
+};
+var _svgTemps = [];
+var _divTemps = [];
+var _getDocScrollTop = function _getDocScrollTop2() {
+  return _win3.pageYOffset || _doc3.scrollTop || _docElement2.scrollTop || _body.scrollTop || 0;
+};
+var _getDocScrollLeft = function _getDocScrollLeft2() {
+  return _win3.pageXOffset || _doc3.scrollLeft || _docElement2.scrollLeft || _body.scrollLeft || 0;
+};
+var _svgOwner = function _svgOwner2(element) {
+  return element.ownerSVGElement || ((element.tagName + "").toLowerCase() === "svg" ? element : null);
+};
+var _isFixed = function _isFixed2(element) {
+  if (_win3.getComputedStyle(element).position === "fixed") {
+    return true;
+  }
+  element = element.parentNode;
+  if (element && element.nodeType === 1) {
+    return _isFixed2(element);
+  }
+};
+var _createSibling = function _createSibling2(element, i) {
+  if (element.parentNode && (_doc3 || _setDoc(element))) {
+    var svg = _svgOwner(element), ns = svg ? svg.getAttribute("xmlns") || "http://www.w3.org/2000/svg" : "http://www.w3.org/1999/xhtml", type = svg ? i ? "rect" : "g" : "div", x = i !== 2 ? 0 : 100, y = i === 3 ? 100 : 0, css = "position:absolute;display:block;pointer-events:none;margin:0;padding:0;", e = _doc3.createElementNS ? _doc3.createElementNS(ns.replace(/^https/, "http"), type) : _doc3.createElement(type);
+    if (i) {
+      if (!svg) {
+        if (!_divContainer) {
+          _divContainer = _createSibling2(element);
+          _divContainer.style.cssText = css;
+        }
+        e.style.cssText = css + "width:0.1px;height:0.1px;top:" + y + "px;left:" + x + "px";
+        _divContainer.appendChild(e);
+      } else {
+        _svgContainer || (_svgContainer = _createSibling2(element));
+        e.setAttribute("width", 0.01);
+        e.setAttribute("height", 0.01);
+        e.setAttribute("transform", "translate(" + x + "," + y + ")");
+        _svgContainer.appendChild(e);
+      }
+    }
+    return e;
+  }
+  throw "Need document and parent.";
+};
+var _consolidate = function _consolidate2(m) {
+  var c = new Matrix2D(), i = 0;
+  for (; i < m.numberOfItems; i++) {
+    c.multiply(m.getItem(i).matrix);
+  }
+  return c;
+};
+var _getCTM = function _getCTM2(svg) {
+  var m = svg.getCTM(), transform;
+  if (!m) {
+    transform = svg.style[_transformProp2];
+    svg.style[_transformProp2] = "none";
+    svg.appendChild(_gEl);
+    m = _gEl.getCTM();
+    svg.removeChild(_gEl);
+    transform ? svg.style[_transformProp2] = transform : svg.style.removeProperty(_transformProp2.replace(/([A-Z])/g, "-$1").toLowerCase());
+  }
+  return m || _identityMatrix.clone();
+};
+var _placeSiblings = function _placeSiblings2(element, adjustGOffset) {
+  var svg = _svgOwner(element), isRootSVG = element === svg, siblings = svg ? _svgTemps : _divTemps, parent = element.parentNode, container, m, b, x, y, cs;
+  if (element === _win3) {
+    return element;
+  }
+  siblings.length || siblings.push(_createSibling(element, 1), _createSibling(element, 2), _createSibling(element, 3));
+  container = svg ? _svgContainer : _divContainer;
+  if (svg) {
+    if (isRootSVG) {
+      b = _getCTM(element);
+      x = -b.e / b.a;
+      y = -b.f / b.d;
+      m = _identityMatrix;
+    } else if (element.getBBox) {
+      b = element.getBBox();
+      m = element.transform ? element.transform.baseVal : {};
+      m = !m.numberOfItems ? _identityMatrix : m.numberOfItems > 1 ? _consolidate(m) : m.getItem(0).matrix;
+      x = m.a * b.x + m.c * b.y;
+      y = m.b * b.x + m.d * b.y;
+    } else {
+      m = new Matrix2D();
+      x = y = 0;
+    }
+    if (adjustGOffset && element.tagName.toLowerCase() === "g") {
+      x = y = 0;
+    }
+    (isRootSVG ? svg : parent).appendChild(container);
+    container.setAttribute("transform", "matrix(" + m.a + "," + m.b + "," + m.c + "," + m.d + "," + (m.e + x) + "," + (m.f + y) + ")");
+  } else {
+    x = y = 0;
+    if (_hasOffsetBug) {
+      m = element.offsetParent;
+      b = element;
+      while (b && (b = b.parentNode) && b !== m && b.parentNode) {
+        if ((_win3.getComputedStyle(b)[_transformProp2] + "").length > 4) {
+          x = b.offsetLeft;
+          y = b.offsetTop;
+          b = 0;
+        }
+      }
+    }
+    cs = _win3.getComputedStyle(element);
+    if (cs.position !== "absolute" && cs.position !== "fixed") {
+      m = element.offsetParent;
+      while (parent && parent !== m) {
+        x += parent.scrollLeft || 0;
+        y += parent.scrollTop || 0;
+        parent = parent.parentNode;
+      }
+    }
+    b = container.style;
+    b.top = element.offsetTop - y + "px";
+    b.left = element.offsetLeft - x + "px";
+    b[_transformProp2] = cs[_transformProp2];
+    b[_transformOriginProp2] = cs[_transformOriginProp2];
+    b.position = cs.position === "fixed" ? "fixed" : "absolute";
+    element.parentNode.appendChild(container);
+  }
+  return container;
+};
+var _setMatrix = function _setMatrix2(m, a, b, c, d, e, f) {
+  m.a = a;
+  m.b = b;
+  m.c = c;
+  m.d = d;
+  m.e = e;
+  m.f = f;
+  return m;
+};
+var Matrix2D = /* @__PURE__ */ function() {
+  function Matrix2D2(a, b, c, d, e, f) {
+    if (a === void 0) {
+      a = 1;
+    }
+    if (b === void 0) {
+      b = 0;
+    }
+    if (c === void 0) {
+      c = 0;
+    }
+    if (d === void 0) {
+      d = 1;
+    }
+    if (e === void 0) {
+      e = 0;
+    }
+    if (f === void 0) {
+      f = 0;
+    }
+    _setMatrix(this, a, b, c, d, e, f);
+  }
+  var _proto = Matrix2D2.prototype;
+  _proto.inverse = function inverse() {
+    var a = this.a, b = this.b, c = this.c, d = this.d, e = this.e, f = this.f, determinant = a * d - b * c || 1e-10;
+    return _setMatrix(this, d / determinant, -b / determinant, -c / determinant, a / determinant, (c * f - d * e) / determinant, -(a * f - b * e) / determinant);
+  };
+  _proto.multiply = function multiply(matrix) {
+    var a = this.a, b = this.b, c = this.c, d = this.d, e = this.e, f = this.f, a2 = matrix.a, b2 = matrix.c, c2 = matrix.b, d2 = matrix.d, e2 = matrix.e, f2 = matrix.f;
+    return _setMatrix(this, a2 * a + c2 * c, a2 * b + c2 * d, b2 * a + d2 * c, b2 * b + d2 * d, e + e2 * a + f2 * c, f + e2 * b + f2 * d);
+  };
+  _proto.clone = function clone() {
+    return new Matrix2D2(this.a, this.b, this.c, this.d, this.e, this.f);
+  };
+  _proto.equals = function equals(matrix) {
+    var a = this.a, b = this.b, c = this.c, d = this.d, e = this.e, f = this.f;
+    return a === matrix.a && b === matrix.b && c === matrix.c && d === matrix.d && e === matrix.e && f === matrix.f;
+  };
+  _proto.apply = function apply(point, decoratee) {
+    if (decoratee === void 0) {
+      decoratee = {};
+    }
+    var x = point.x, y = point.y, a = this.a, b = this.b, c = this.c, d = this.d, e = this.e, f = this.f;
+    decoratee.x = x * a + y * c + e || 0;
+    decoratee.y = x * b + y * d + f || 0;
+    return decoratee;
+  };
+  return Matrix2D2;
+}();
+function getGlobalMatrix(element, inverse, adjustGOffset, includeScrollInFixed) {
+  if (!element || !element.parentNode || (_doc3 || _setDoc(element)).documentElement === element) {
+    return new Matrix2D();
+  }
+  var zeroScales = _forceNonZeroScale(element), svg = _svgOwner(element), temps = svg ? _svgTemps : _divTemps, container = _placeSiblings(element, adjustGOffset), b1 = temps[0].getBoundingClientRect(), b2 = temps[1].getBoundingClientRect(), b3 = temps[2].getBoundingClientRect(), parent = container.parentNode, isFixed = !includeScrollInFixed && _isFixed(element), m = new Matrix2D((b2.left - b1.left) / 100, (b2.top - b1.top) / 100, (b3.left - b1.left) / 100, (b3.top - b1.top) / 100, b1.left + (isFixed ? 0 : _getDocScrollLeft()), b1.top + (isFixed ? 0 : _getDocScrollTop()));
+  parent.removeChild(container);
+  if (zeroScales) {
+    b1 = zeroScales.length;
+    while (b1--) {
+      b2 = zeroScales[b1];
+      b2.scaleX = b2.scaleY = 0;
+      b2.renderTransform(1, b2);
+    }
+  }
+  return inverse ? m.inverse() : m;
+}
+
+// node_modules/gsap/MotionPathPlugin.js
+var _xProps = "x,translateX,left,marginLeft,xPercent".split(",");
+var _yProps = "y,translateY,top,marginTop,yPercent".split(",");
+var _DEG2RAD3 = Math.PI / 180;
+var gsap2;
+var PropTween2;
+var _getUnit;
+var _toArray;
+var _getStyleSaver3;
+var _reverting3;
+var _getGSAP = function _getGSAP2() {
+  return gsap2 || typeof window !== "undefined" && (gsap2 = window.gsap) && gsap2.registerPlugin && gsap2;
+};
+var _populateSegmentFromArray = function _populateSegmentFromArray2(segment, values, property, mode) {
+  var l = values.length, si = mode === 2 ? 0 : mode, i = 0, v;
+  for (; i < l; i++) {
+    segment[si] = v = parseFloat(values[i][property]);
+    mode === 2 && (segment[si + 1] = 0);
+    si += 2;
+  }
+  return segment;
+};
+var _getPropNum = function _getPropNum2(target, prop, unit) {
+  return parseFloat(target._gsap.get(target, prop, unit || "px")) || 0;
+};
+var _relativize = function _relativize2(segment) {
+  var x = segment[0], y = segment[1], i;
+  for (i = 2; i < segment.length; i += 2) {
+    x = segment[i] += x;
+    y = segment[i + 1] += y;
+  }
+};
+var _segmentToRawPath = function _segmentToRawPath2(plugin, segment, target, x, y, slicer, vars, unitX, unitY) {
+  if (vars.type === "cubic") {
+    segment = [segment];
+  } else {
+    vars.fromCurrent !== false && segment.unshift(_getPropNum(target, x, unitX), y ? _getPropNum(target, y, unitY) : 0);
+    vars.relative && _relativize(segment);
+    var pointFunc = y ? pointsToSegment : flatPointsToSegment;
+    segment = [pointFunc(segment, vars.curviness)];
+  }
+  segment = slicer(_align(segment, target, vars));
+  _addDimensionalPropTween(plugin, target, x, segment, "x", unitX);
+  y && _addDimensionalPropTween(plugin, target, y, segment, "y", unitY);
+  return cacheRawPathMeasurements(segment, vars.resolution || (vars.curviness === 0 ? 20 : 12));
+};
+var _emptyFunc3 = function _emptyFunc4(v) {
+  return v;
+};
+var _numExp2 = /[-+\.]*\d+\.?(?:e-|e\+)?\d*/g;
+var _originToPoint = function _originToPoint2(element, origin, parentMatrix) {
+  var m = getGlobalMatrix(element), x = 0, y = 0, svg;
+  if ((element.tagName + "").toLowerCase() === "svg") {
+    svg = element.viewBox.baseVal;
+    svg.width || (svg = {
+      width: +element.getAttribute("width"),
+      height: +element.getAttribute("height")
+    });
+  } else {
+    svg = origin && element.getBBox && element.getBBox();
+  }
+  if (origin && origin !== "auto") {
+    x = origin.push ? origin[0] * (svg ? svg.width : element.offsetWidth || 0) : origin.x;
+    y = origin.push ? origin[1] * (svg ? svg.height : element.offsetHeight || 0) : origin.y;
+  }
+  return parentMatrix.apply(x || y ? m.apply({
+    x,
+    y
+  }) : {
+    x: m.e,
+    y: m.f
+  });
+};
+var _getAlignMatrix = function _getAlignMatrix2(fromElement, toElement, fromOrigin, toOrigin) {
+  var parentMatrix = getGlobalMatrix(fromElement.parentNode, true, true), m = parentMatrix.clone().multiply(getGlobalMatrix(toElement)), fromPoint = _originToPoint(fromElement, fromOrigin, parentMatrix), _originToPoint22 = _originToPoint(toElement, toOrigin, parentMatrix), x = _originToPoint22.x, y = _originToPoint22.y, p;
+  m.e = m.f = 0;
+  if (toOrigin === "auto" && toElement.getTotalLength && toElement.tagName.toLowerCase() === "path") {
+    p = toElement.getAttribute("d").match(_numExp2) || [];
+    p = m.apply({
+      x: +p[0],
+      y: +p[1]
+    });
+    x += p.x;
+    y += p.y;
+  }
+  if (p) {
+    p = m.apply(toElement.getBBox());
+    x -= p.x;
+    y -= p.y;
+  }
+  m.e = x - fromPoint.x;
+  m.f = y - fromPoint.y;
+  return m;
+};
+var _align = function _align2(rawPath, target, _ref) {
+  var align = _ref.align, matrix = _ref.matrix, offsetX = _ref.offsetX, offsetY = _ref.offsetY, alignOrigin = _ref.alignOrigin;
+  var x = rawPath[0][0], y = rawPath[0][1], curX = _getPropNum(target, "x"), curY = _getPropNum(target, "y"), alignTarget, m, p;
+  if (!rawPath || !rawPath.length) {
+    return getRawPath("M0,0L0,0");
+  }
+  if (align) {
+    if (align === "self" || (alignTarget = _toArray(align)[0] || target) === target) {
+      transformRawPath(rawPath, 1, 0, 0, 1, curX - x, curY - y);
+    } else {
+      if (alignOrigin && alignOrigin[2] !== false) {
+        gsap2.set(target, {
+          transformOrigin: alignOrigin[0] * 100 + "% " + alignOrigin[1] * 100 + "%"
+        });
+      } else {
+        alignOrigin = [_getPropNum(target, "xPercent") / -100, _getPropNum(target, "yPercent") / -100];
+      }
+      m = _getAlignMatrix(target, alignTarget, alignOrigin, "auto");
+      p = m.apply({
+        x,
+        y
+      });
+      transformRawPath(rawPath, m.a, m.b, m.c, m.d, curX + m.e - (p.x - m.e), curY + m.f - (p.y - m.f));
+    }
+  }
+  if (matrix) {
+    transformRawPath(rawPath, matrix.a, matrix.b, matrix.c, matrix.d, matrix.e, matrix.f);
+  } else if (offsetX || offsetY) {
+    transformRawPath(rawPath, 1, 0, 0, 1, offsetX || 0, offsetY || 0);
+  }
+  return rawPath;
+};
+var _addDimensionalPropTween = function _addDimensionalPropTween2(plugin, target, property, rawPath, pathProperty, forceUnit) {
+  var cache = target._gsap, harness = cache.harness, alias = harness && harness.aliases && harness.aliases[property], prop = alias && alias.indexOf(",") < 0 ? alias : property, pt = plugin._pt = new PropTween2(plugin._pt, target, prop, 0, 0, _emptyFunc3, 0, cache.set(target, prop, plugin));
+  pt.u = _getUnit(cache.get(target, prop, forceUnit)) || 0;
+  pt.path = rawPath;
+  pt.pp = pathProperty;
+  plugin._props.push(prop);
+};
+var _sliceModifier = function _sliceModifier2(start, end) {
+  return function(rawPath) {
+    return start || end !== 1 ? sliceRawPath(rawPath, start, end) : rawPath;
+  };
+};
+var MotionPathPlugin = {
+  version: "3.12.7",
+  name: "motionPath",
+  register: function register(core, Plugin, propTween) {
+    gsap2 = core;
+    _getUnit = gsap2.utils.getUnit;
+    _toArray = gsap2.utils.toArray;
+    _getStyleSaver3 = gsap2.core.getStyleSaver;
+    _reverting3 = gsap2.core.reverting || function() {
+    };
+    PropTween2 = propTween;
+  },
+  init: function init4(target, vars, tween) {
+    if (!gsap2) {
+      console.warn("Please gsap.registerPlugin(MotionPathPlugin)");
+      return false;
+    }
+    if (!(typeof vars === "object" && !vars.style) || !vars.path) {
+      vars = {
+        path: vars
+      };
+    }
+    var rawPaths = [], _vars = vars, path = _vars.path, autoRotate = _vars.autoRotate, unitX = _vars.unitX, unitY = _vars.unitY, x = _vars.x, y = _vars.y, firstObj = path[0], slicer = _sliceModifier(vars.start, "end" in vars ? vars.end : 1), rawPath, p;
+    this.rawPaths = rawPaths;
+    this.target = target;
+    this.tween = tween;
+    this.styles = _getStyleSaver3 && _getStyleSaver3(target, "transform");
+    if (this.rotate = autoRotate || autoRotate === 0) {
+      this.rOffset = parseFloat(autoRotate) || 0;
+      this.radians = !!vars.useRadians;
+      this.rProp = vars.rotation || "rotation";
+      this.rSet = target._gsap.set(target, this.rProp, this);
+      this.ru = _getUnit(target._gsap.get(target, this.rProp)) || 0;
+    }
+    if (Array.isArray(path) && !("closed" in path) && typeof firstObj !== "number") {
+      for (p in firstObj) {
+        if (!x && ~_xProps.indexOf(p)) {
+          x = p;
+        } else if (!y && ~_yProps.indexOf(p)) {
+          y = p;
+        }
+      }
+      if (x && y) {
+        rawPaths.push(_segmentToRawPath(this, _populateSegmentFromArray(_populateSegmentFromArray([], path, x, 0), path, y, 1), target, x, y, slicer, vars, unitX || _getUnit(path[0][x]), unitY || _getUnit(path[0][y])));
+      } else {
+        x = y = 0;
+      }
+      for (p in firstObj) {
+        p !== x && p !== y && rawPaths.push(_segmentToRawPath(this, _populateSegmentFromArray([], path, p, 2), target, p, 0, slicer, vars, _getUnit(path[0][p])));
+      }
+    } else {
+      rawPath = slicer(_align(getRawPath(vars.path), target, vars));
+      cacheRawPathMeasurements(rawPath, vars.resolution);
+      rawPaths.push(rawPath);
+      _addDimensionalPropTween(this, target, vars.x || "x", rawPath, "x", vars.unitX || "px");
+      _addDimensionalPropTween(this, target, vars.y || "y", rawPath, "y", vars.unitY || "px");
+    }
+    tween.vars.immediateRender && this.render(tween.progress(), this);
+  },
+  render: function render3(ratio, data) {
+    var rawPaths = data.rawPaths, i = rawPaths.length, pt = data._pt;
+    if (data.tween._time || !_reverting3()) {
+      if (ratio > 1) {
+        ratio = 1;
+      } else if (ratio < 0) {
+        ratio = 0;
+      }
+      while (i--) {
+        getPositionOnPath(rawPaths[i], ratio, !i && data.rotate, rawPaths[i]);
+      }
+      while (pt) {
+        pt.set(pt.t, pt.p, pt.path[pt.pp] + pt.u, pt.d, ratio);
+        pt = pt._next;
+      }
+      data.rotate && data.rSet(data.target, data.rProp, rawPaths[0].angle * (data.radians ? _DEG2RAD3 : 1) + data.rOffset + data.ru, data, ratio);
+    } else {
+      data.styles.revert();
+    }
+  },
+  getLength: function getLength(path) {
+    return cacheRawPathMeasurements(getRawPath(path)).totalLength;
+  },
+  sliceRawPath,
+  getRawPath,
+  pointsToSegment,
+  stringToRawPath,
+  rawPathToString,
+  transformRawPath,
+  getGlobalMatrix,
+  getPositionOnPath,
+  cacheRawPathMeasurements,
+  convertToPath: function convertToPath2(targets, swap) {
+    return _toArray(targets).map(function(target) {
+      return convertToPath(target, swap !== false);
+    });
+  },
+  convertCoordinates: function convertCoordinates(fromElement, toElement, point) {
+    var m = getGlobalMatrix(toElement, true, true).multiply(getGlobalMatrix(fromElement));
+    return point ? m.apply(point) : m;
+  },
+  getAlignMatrix: _getAlignMatrix,
+  getRelativePosition: function getRelativePosition(fromElement, toElement, fromOrigin, toOrigin) {
+    var m = _getAlignMatrix(fromElement, toElement, fromOrigin, toOrigin);
+    return {
+      x: m.e,
+      y: m.f
+    };
+  },
+  arrayToRawPath: function arrayToRawPath(value, vars) {
+    vars = vars || {};
+    var segment = _populateSegmentFromArray(_populateSegmentFromArray([], value, vars.x || "x", 0), value, vars.y || "y", 1);
+    vars.relative && _relativize(segment);
+    return [vars.type === "cubic" ? segment : pointsToSegment(segment, vars.curviness)];
+  }
+};
+_getGSAP() && gsap2.registerPlugin(MotionPathPlugin);
+
 // node_modules/gsap/Observer.js
 function _defineProperties(target, props) {
   for (var i = 0; i < props.length; i++) {
@@ -4274,13 +5541,13 @@ function _createClass(Constructor, protoProps, staticProps) {
   if (staticProps) _defineProperties(Constructor, staticProps);
   return Constructor;
 }
-var gsap2;
+var gsap3;
 var _coreInitted2;
 var _clamp3;
-var _win3;
-var _doc3;
+var _win4;
+var _doc4;
 var _docEl;
-var _body;
+var _body2;
 var _isTouch;
 var _pointerType;
 var ScrollTrigger;
@@ -4288,8 +5555,8 @@ var _root;
 var _normalizer;
 var _eventTypes;
 var _context2;
-var _getGSAP = function _getGSAP2() {
-  return gsap2 || typeof window !== "undefined" && (gsap2 = window.gsap) && gsap2.registerPlugin && gsap2;
+var _getGSAP3 = function _getGSAP4() {
+  return gsap3 || typeof window !== "undefined" && (gsap3 = window.gsap) && gsap3.registerPlugin && gsap3;
 };
 var _startup = 1;
 var _observers = [];
@@ -4332,7 +5599,7 @@ var _onScroll = function _onScroll2() {
 var _scrollCacheFunc = function _scrollCacheFunc2(f, doNotCache) {
   var cachingFunc = function cachingFunc2(value) {
     if (value || value === 0) {
-      _startup && (_win3.history.scrollRestoration = "manual");
+      _startup && (_win4.history.scrollRestoration = "manual");
       var isNormalizing = _normalizer && _normalizer.isPressed;
       value = cachingFunc2.v = Math.round(value) || (_normalizer && _normalizer.iOS ? 1 : 0);
       f(value);
@@ -4357,7 +5624,7 @@ var _horizontal = {
   d2: "Width",
   a: "x",
   sc: _scrollCacheFunc(function(value) {
-    return arguments.length ? _win3.scrollTo(value, _vertical.sc()) : _win3.pageXOffset || _doc3[_scrollLeft] || _docEl[_scrollLeft] || _body[_scrollLeft] || 0;
+    return arguments.length ? _win4.scrollTo(value, _vertical.sc()) : _win4.pageXOffset || _doc4[_scrollLeft] || _docEl[_scrollLeft] || _body2[_scrollLeft] || 0;
   })
 };
 var _vertical = {
@@ -4371,15 +5638,15 @@ var _vertical = {
   a: "y",
   op: _horizontal,
   sc: _scrollCacheFunc(function(value) {
-    return arguments.length ? _win3.scrollTo(_horizontal.sc(), value) : _win3.pageYOffset || _doc3[_scrollTop] || _docEl[_scrollTop] || _body[_scrollTop] || 0;
+    return arguments.length ? _win4.scrollTo(_horizontal.sc(), value) : _win4.pageYOffset || _doc4[_scrollTop] || _docEl[_scrollTop] || _body2[_scrollTop] || 0;
   })
 };
 var _getTarget = function _getTarget2(t, self) {
-  return (self && self._ctx && self._ctx.selector || gsap2.utils.toArray)(t)[0] || (typeof t === "string" && gsap2.config().nullTargetWarn !== false ? console.warn("Element not found:", t) : null);
+  return (self && self._ctx && self._ctx.selector || gsap3.utils.toArray)(t)[0] || (typeof t === "string" && gsap3.config().nullTargetWarn !== false ? console.warn("Element not found:", t) : null);
 };
 var _getScrollFunc = function _getScrollFunc2(element, _ref) {
   var s = _ref.s, sc = _ref.sc;
-  _isViewport(element) && (element = _doc3.scrollingElement || _docEl);
+  _isViewport(element) && (element = _doc4.scrollingElement || _docEl);
   var i = _scrollers.indexOf(element), offset = sc === _vertical.sc ? 1 : 2;
   !~i && (i = _scrollers.push(element) - 1);
   _scrollers[i + offset] || _addListener(element, "scroll", _onScroll);
@@ -4387,7 +5654,7 @@ var _getScrollFunc = function _getScrollFunc2(element, _ref) {
     return arguments.length ? element[s] = value : element[s];
   })));
   func.target = element;
-  prev || (func.smooth = gsap2.getProperty(element, "scrollBehavior") === "smooth");
+  prev || (func.smooth = gsap3.getProperty(element, "scrollBehavior") === "smooth");
   return func;
 };
 var _getVelocityProp = function _getVelocityProp2(value, minTimeRefresh, useDelta) {
@@ -4426,22 +5693,22 @@ var _getAbsoluteMax = function _getAbsoluteMax2(a) {
   return Math.abs(max) >= Math.abs(min) ? max : min;
 };
 var _setScrollTrigger = function _setScrollTrigger2() {
-  ScrollTrigger = gsap2.core.globals().ScrollTrigger;
+  ScrollTrigger = gsap3.core.globals().ScrollTrigger;
   ScrollTrigger && ScrollTrigger.core && _integrate();
 };
 var _initCore3 = function _initCore4(core) {
-  gsap2 = core || _getGSAP();
-  if (!_coreInitted2 && gsap2 && typeof document !== "undefined" && document.body) {
-    _win3 = window;
-    _doc3 = document;
-    _docEl = _doc3.documentElement;
-    _body = _doc3.body;
-    _root = [_win3, _doc3, _docEl, _body];
-    _clamp3 = gsap2.utils.clamp;
-    _context2 = gsap2.core.context || function() {
+  gsap3 = core || _getGSAP3();
+  if (!_coreInitted2 && gsap3 && typeof document !== "undefined" && document.body) {
+    _win4 = window;
+    _doc4 = document;
+    _docEl = _doc4.documentElement;
+    _body2 = _doc4.body;
+    _root = [_win4, _doc4, _docEl, _body2];
+    _clamp3 = gsap3.utils.clamp;
+    _context2 = gsap3.core.context || function() {
     };
-    _pointerType = "onpointerenter" in _body ? "pointer" : "mouse";
-    _isTouch = Observer.isTouch = _win3.matchMedia && _win3.matchMedia("(hover: none), (pointer: coarse)").matches ? 1 : "ontouchstart" in _win3 || navigator.maxTouchPoints > 0 || navigator.msMaxTouchPoints > 0 ? 2 : 0;
+    _pointerType = "onpointerenter" in _body2 ? "pointer" : "mouse";
+    _isTouch = Observer.isTouch = _win4.matchMedia && _win4.matchMedia("(hover: none), (pointer: coarse)").matches ? 1 : "ontouchstart" in _win4 || navigator.maxTouchPoints > 0 || navigator.msMaxTouchPoints > 0 ? 2 : 0;
     _eventTypes = Observer.eventTypes = ("ontouchstart" in _docEl ? "touchstart,touchmove,touchcancel,touchend" : !("onpointerdown" in _docEl) ? "mousedown,mousemove,mouseup,mouseup" : "pointerdown,pointermove,pointercancel,pointerup").split(",");
     setTimeout(function() {
       return _startup = 0;
@@ -4459,20 +5726,20 @@ var Observer = /* @__PURE__ */ function() {
   }
   var _proto = Observer2.prototype;
   _proto.init = function init6(vars) {
-    _coreInitted2 || _initCore3(gsap2) || console.warn("Please gsap.registerPlugin(Observer)");
+    _coreInitted2 || _initCore3(gsap3) || console.warn("Please gsap.registerPlugin(Observer)");
     ScrollTrigger || _setScrollTrigger();
     var tolerance = vars.tolerance, dragMinimum = vars.dragMinimum, type = vars.type, target = vars.target, lineHeight = vars.lineHeight, debounce = vars.debounce, preventDefault = vars.preventDefault, onStop = vars.onStop, onStopDelay = vars.onStopDelay, ignore = vars.ignore, wheelSpeed = vars.wheelSpeed, event = vars.event, onDragStart = vars.onDragStart, onDragEnd = vars.onDragEnd, onDrag = vars.onDrag, onPress = vars.onPress, onRelease = vars.onRelease, onRight = vars.onRight, onLeft = vars.onLeft, onUp = vars.onUp, onDown = vars.onDown, onChangeX = vars.onChangeX, onChangeY = vars.onChangeY, onChange = vars.onChange, onToggleX = vars.onToggleX, onToggleY = vars.onToggleY, onHover = vars.onHover, onHoverEnd = vars.onHoverEnd, onMove = vars.onMove, ignoreCheck = vars.ignoreCheck, isNormalizer = vars.isNormalizer, onGestureStart = vars.onGestureStart, onGestureEnd = vars.onGestureEnd, onWheel = vars.onWheel, onEnable = vars.onEnable, onDisable = vars.onDisable, onClick = vars.onClick, scrollSpeed = vars.scrollSpeed, capture = vars.capture, allowClicks = vars.allowClicks, lockAxis = vars.lockAxis, onLockAxis = vars.onLockAxis;
     this.target = target = _getTarget(target) || _docEl;
     this.vars = vars;
-    ignore && (ignore = gsap2.utils.toArray(ignore));
+    ignore && (ignore = gsap3.utils.toArray(ignore));
     tolerance = tolerance || 1e-9;
     dragMinimum = dragMinimum || 0;
     wheelSpeed = wheelSpeed || 1;
     scrollSpeed = scrollSpeed || 1;
     type = type || "wheel,touch,pointer";
     debounce = debounce !== false;
-    lineHeight || (lineHeight = parseFloat(_win3.getComputedStyle(_body).lineHeight) || 22);
-    var id, onStopDelayedCall, dragged, moved, wheeled, locked, axis, self = this, prevDeltaX = 0, prevDeltaY = 0, passive = vars.passive || !preventDefault && vars.passive !== false, scrollFuncX = _getScrollFunc(target, _horizontal), scrollFuncY = _getScrollFunc(target, _vertical), scrollX = scrollFuncX(), scrollY = scrollFuncY(), limitToTouch = ~type.indexOf("touch") && !~type.indexOf("pointer") && _eventTypes[0] === "pointerdown", isViewport = _isViewport(target), ownerDoc = target.ownerDocument || _doc3, deltaX = [0, 0, 0], deltaY = [0, 0, 0], onClickTime = 0, clickCapture = function clickCapture2() {
+    lineHeight || (lineHeight = parseFloat(_win4.getComputedStyle(_body2).lineHeight) || 22);
+    var id, onStopDelayedCall, dragged, moved, wheeled, locked, axis, self = this, prevDeltaX = 0, prevDeltaY = 0, passive = vars.passive || !preventDefault && vars.passive !== false, scrollFuncX = _getScrollFunc(target, _horizontal), scrollFuncY = _getScrollFunc(target, _vertical), scrollX = scrollFuncX(), scrollY = scrollFuncY(), limitToTouch = ~type.indexOf("touch") && !~type.indexOf("pointer") && _eventTypes[0] === "pointerdown", isViewport = _isViewport(target), ownerDoc = target.ownerDocument || _doc4, deltaX = [0, 0, 0], deltaY = [0, 0, 0], onClickTime = 0, clickCapture = function clickCapture2() {
       return onClickTime = _getTime();
     }, _ignoreCheck = function _ignoreCheck2(e, isPointerOrTouch) {
       return (self.event = e) && ignore && ~ignore.indexOf(e.target) || isPointerOrTouch && limitToTouch && e.pointerType !== "touch" || ignoreCheck && ignoreCheck(e, isPointerOrTouch);
@@ -4574,13 +5841,13 @@ var Observer = /* @__PURE__ */ function() {
         self._vx.reset();
         self._vy.reset();
         if (preventDefault && allowClicks) {
-          gsap2.delayedCall(0.08, function() {
+          gsap3.delayedCall(0.08, function() {
             if (_getTime() - onClickTime > 300 && !e.defaultPrevented) {
               if (e.target.click) {
                 e.target.click();
               } else if (ownerDoc.createEvent) {
                 var syntheticEvent = ownerDoc.createEvent("MouseEvents");
-                syntheticEvent.initMouseEvent("click", true, true, _win3, 1, eventData.screenX, eventData.screenY, eventData.clientX, eventData.clientY, false, false, false, false, 0, null);
+                syntheticEvent.initMouseEvent("click", true, true, _win4, 1, eventData.screenX, eventData.screenY, eventData.clientX, eventData.clientY, false, false, false, false, 0, null);
                 e.target.dispatchEvent(syntheticEvent);
               }
             }
@@ -4611,7 +5878,7 @@ var Observer = /* @__PURE__ */ function() {
       }
       e = _getEvent(e, preventDefault);
       onWheel && (wheeled = true);
-      var multiplier = (e.deltaMode === 1 ? lineHeight : e.deltaMode === 2 ? _win3.innerHeight : 1) * wheelSpeed;
+      var multiplier = (e.deltaMode === 1 ? lineHeight : e.deltaMode === 2 ? _win4.innerHeight : 1) * wheelSpeed;
       onDelta(e.deltaX * multiplier, e.deltaY * multiplier, 0);
       onStop && !isNormalizer && onStopDelayedCall.restart(true);
     }, _onMove = function _onMove2(e) {
@@ -4633,7 +5900,7 @@ var Observer = /* @__PURE__ */ function() {
     }, _onClick = function _onClick2(e) {
       return _ignoreCheck(e) || _getEvent(e, preventDefault) && onClick(self);
     };
-    onStopDelayedCall = self._dc = gsap2.delayedCall(onStopDelay || 0.25, onStopFunc).pause();
+    onStopDelayedCall = self._dc = gsap3.delayedCall(onStopDelay || 0.25, onStopFunc).pause();
     self.deltaX = self.deltaY = 0;
     self._vx = _getVelocityProp(0, 50, true);
     self._vy = _getVelocityProp(0, 50, true);
@@ -4731,24 +5998,24 @@ Observer.getById = function(id) {
     return o.vars.id === id;
   })[0];
 };
-_getGSAP() && gsap2.registerPlugin(Observer);
+_getGSAP3() && gsap3.registerPlugin(Observer);
 
 // node_modules/gsap/ScrollTrigger.js
-var gsap3;
+var gsap4;
 var _coreInitted3;
-var _win4;
-var _doc4;
+var _win5;
+var _doc5;
 var _docEl2;
-var _body2;
+var _body3;
 var _root2;
 var _resizeDelay;
-var _toArray;
+var _toArray2;
 var _clamp4;
 var _time2;
 var _syncInterval;
 var _refreshing;
 var _pointerIsDown;
-var _transformProp2;
+var _transformProp3;
 var _i;
 var _prevWidth;
 var _prevHeight;
@@ -4774,12 +6041,12 @@ var _time1 = _getTime2();
 var _lastScrollTime = 0;
 var _enabled = 0;
 var _parseClamp = function _parseClamp2(value, type, self) {
-  var clamp3 = _isString3(value) && (value.substr(0, 6) === "clamp(" || value.indexOf("max") > -1);
+  var clamp3 = _isString5(value) && (value.substr(0, 6) === "clamp(" || value.indexOf("max") > -1);
   self["_" + type + "Clamp"] = clamp3;
   return clamp3 ? value.substr(6, value.length - 7) : value;
 };
 var _keepClamp = function _keepClamp2(value, clamp3) {
-  return clamp3 && (!_isString3(value) || value.substr(0, 6) !== "clamp(") ? "clamp(" + value + ")" : value;
+  return clamp3 && (!_isString5(value) || value.substr(0, 6) !== "clamp(") ? "clamp(" + value + ")" : value;
 };
 var _rafBugFix = function _rafBugFix2() {
   return _enabled && requestAnimationFrame(_rafBugFix2);
@@ -4793,24 +6060,24 @@ var _pointerUpHandler = function _pointerUpHandler2() {
 var _passThrough3 = function _passThrough4(v) {
   return v;
 };
-var _round3 = function _round4(value) {
+var _round5 = function _round6(value) {
   return Math.round(value * 1e5) / 1e5 || 0;
 };
 var _windowExists5 = function _windowExists6() {
   return typeof window !== "undefined";
 };
-var _getGSAP3 = function _getGSAP4() {
-  return gsap3 || _windowExists5() && (gsap3 = window.gsap) && gsap3.registerPlugin && gsap3;
+var _getGSAP5 = function _getGSAP6() {
+  return gsap4 || _windowExists5() && (gsap4 = window.gsap) && gsap4.registerPlugin && gsap4;
 };
 var _isViewport3 = function _isViewport4(e) {
   return !!~_root2.indexOf(e);
 };
 var _getViewportDimension = function _getViewportDimension2(dimensionProperty) {
-  return (dimensionProperty === "Height" ? _100vh : _win4["inner" + dimensionProperty]) || _docEl2["client" + dimensionProperty] || _body2["client" + dimensionProperty];
+  return (dimensionProperty === "Height" ? _100vh : _win5["inner" + dimensionProperty]) || _docEl2["client" + dimensionProperty] || _body3["client" + dimensionProperty];
 };
 var _getBoundsFunc = function _getBoundsFunc2(element) {
   return _getProxyProp(element, "getBoundingClientRect") || (_isViewport3(element) ? function() {
-    _winOffsets.width = _win4.innerWidth;
+    _winOffsets.width = _win5.innerWidth;
     _winOffsets.height = _100vh;
     return _winOffsets;
   } : function() {
@@ -4832,20 +6099,20 @@ var _getOffsetsFunc = function _getOffsetsFunc2(element, isViewport) {
 };
 var _maxScroll = function _maxScroll2(element, _ref2) {
   var s = _ref2.s, d2 = _ref2.d2, d = _ref2.d, a = _ref2.a;
-  return Math.max(0, (s = "scroll" + d2) && (a = _getProxyProp(element, s)) ? a() - _getBoundsFunc(element)()[d] : _isViewport3(element) ? (_docEl2[s] || _body2[s]) - _getViewportDimension(d2) : element[s] - element["offset" + d2]);
+  return Math.max(0, (s = "scroll" + d2) && (a = _getProxyProp(element, s)) ? a() - _getBoundsFunc(element)()[d] : _isViewport3(element) ? (_docEl2[s] || _body3[s]) - _getViewportDimension(d2) : element[s] - element["offset" + d2]);
 };
 var _iterateAutoRefresh = function _iterateAutoRefresh2(func, events) {
   for (var i = 0; i < _autoRefresh.length; i += 3) {
     (!events || ~events.indexOf(_autoRefresh[i + 1])) && func(_autoRefresh[i], _autoRefresh[i + 1], _autoRefresh[i + 2]);
   }
 };
-var _isString3 = function _isString4(value) {
+var _isString5 = function _isString6(value) {
   return typeof value === "string";
 };
 var _isFunction3 = function _isFunction4(value) {
   return typeof value === "function";
 };
-var _isNumber3 = function _isNumber4(value) {
+var _isNumber5 = function _isNumber6(value) {
   return typeof value === "number";
 };
 var _isObject3 = function _isObject4(value) {
@@ -4862,7 +6129,7 @@ var _callback3 = function _callback4(self, func) {
     result && result.totalTime && (self.callbackAnimation = result);
   }
 };
-var _abs = Math.abs;
+var _abs2 = Math.abs;
 var _left = "left";
 var _top = "top";
 var _right = "right";
@@ -4879,7 +6146,7 @@ var _Width = "Width";
 var _Height = "Height";
 var _px = "px";
 var _getComputedStyle = function _getComputedStyle2(element) {
-  return _win4.getComputedStyle(element);
+  return _win5.getComputedStyle(element);
 };
 var _makePositionable = function _makePositionable2(element) {
   var position = _getComputedStyle(element).position;
@@ -4892,7 +6159,7 @@ var _setDefaults3 = function _setDefaults4(obj, defaults2) {
   return obj;
 };
 var _getBounds = function _getBounds2(element, withoutTransforms) {
-  var tween = withoutTransforms && _getComputedStyle(element)[_transformProp2] !== "matrix(1, 0, 0, 1, 0, 0)" && gsap3.to(element, {
+  var tween = withoutTransforms && _getComputedStyle(element)[_transformProp3] !== "matrix(1, 0, 0, 1, 0, 0)" && gsap4.to(element, {
     x: 0,
     y: 0,
     xPercent: 0,
@@ -4920,11 +6187,11 @@ var _getLabelRatioArray = function _getLabelRatioArray2(timeline2) {
 };
 var _getClosestLabel = function _getClosestLabel2(animation) {
   return function(value) {
-    return gsap3.utils.snap(_getLabelRatioArray(animation), value);
+    return gsap4.utils.snap(_getLabelRatioArray(animation), value);
   };
 };
 var _snapDirectional = function _snapDirectional2(snapIncrementOrArray) {
-  var snap3 = gsap3.utils.snap(snapIncrementOrArray), a = Array.isArray(snapIncrementOrArray) && snapIncrementOrArray.slice(0).sort(function(a2, b) {
+  var snap3 = gsap4.utils.snap(snapIncrementOrArray), a = Array.isArray(snapIncrementOrArray) && snapIncrementOrArray.slice(0).sort(function(a2, b) {
     return a2 - b;
   });
   return a ? function(value, direction, threshold) {
@@ -5006,7 +6273,7 @@ var _keywords = {
   right: 1
 };
 var _offsetToPx = function _offsetToPx2(value, size) {
-  if (_isString3(value)) {
+  if (_isString5(value)) {
     var eqIndex = value.indexOf("="), relative = ~eqIndex ? +(value.charAt(eqIndex - 1) + 1) * parseFloat(value.substr(eqIndex + 1)) : 0;
     if (~eqIndex) {
       value.indexOf("%") > eqIndex && (relative *= size / 100);
@@ -5018,7 +6285,7 @@ var _offsetToPx = function _offsetToPx2(value, size) {
 };
 var _createMarker = function _createMarker2(type, name, container, direction, _ref4, offset, matchWidthEl, containerAnimation) {
   var startColor = _ref4.startColor, endColor = _ref4.endColor, fontSize = _ref4.fontSize, indent = _ref4.indent, fontWeight = _ref4.fontWeight;
-  var e = _doc4.createElement("div"), useFixedPosition = _isViewport3(container) || _getProxyProp(container, "pinType") === "fixed", isScroller = type.indexOf("scroller") !== -1, parent = useFixedPosition ? _body2 : container, isStart = type.indexOf("start") !== -1, color = isStart ? startColor : endColor, css = "border-color:" + color + ";font-size:" + fontSize + ";color:" + color + ";font-weight:" + fontWeight + ";pointer-events:none;white-space:nowrap;font-family:sans-serif,Arial;z-index:1000;padding:4px 8px;border-width:0;border-style:solid;";
+  var e = _doc5.createElement("div"), useFixedPosition = _isViewport3(container) || _getProxyProp(container, "pinType") === "fixed", isScroller = type.indexOf("scroller") !== -1, parent = useFixedPosition ? _body3 : container, isStart = type.indexOf("start") !== -1, color = isStart ? startColor : endColor, css = "border-color:" + color + ";font-size:" + fontSize + ";color:" + color + ";font-weight:" + fontWeight + ";pointer-events:none;white-space:nowrap;font-family:sans-serif,Arial;z-index:1000;padding:4px 8px;border-width:0;border-style:solid;";
   css += "position:" + ((isScroller || containerAnimation) && useFixedPosition ? "fixed;" : "absolute;");
   (isScroller || containerAnimation || !useFixedPosition) && (css += (direction === _vertical ? _right : _bottom) + ":" + (offset + parseFloat(indent)) + "px;");
   matchWidthEl && (css += "box-sizing:border-box;text-align:left;width:" + matchWidthEl.offsetWidth + "px;");
@@ -5041,7 +6308,7 @@ var _positionMarker = function _positionMarker2(marker, start, direction, flippe
   vars["border" + side + _Width] = 1;
   vars["border" + oppositeSide + _Width] = 0;
   vars[direction.p] = start + "px";
-  gsap3.set(marker, vars);
+  gsap4.set(marker, vars);
 };
 var _triggers = [];
 var _ids = {};
@@ -5050,7 +6317,7 @@ var _sync = function _sync2() {
   return _getTime2() - _lastScrollTime > 34 && (_rafID || (_rafID = requestAnimationFrame(_updateAll)));
 };
 var _onScroll3 = function _onScroll4() {
-  if (!_normalizer2 || !_normalizer2.isPressed || _normalizer2.startX > _body2.clientWidth) {
+  if (!_normalizer2 || !_normalizer2.isPressed || _normalizer2.startX > _body3.clientWidth) {
     _scrollers.cache++;
     if (_normalizer2) {
       _rafID || (_rafID = requestAnimationFrame(_updateAll));
@@ -5062,12 +6329,12 @@ var _onScroll3 = function _onScroll4() {
   }
 };
 var _setBaseDimensions = function _setBaseDimensions2() {
-  _baseScreenWidth = _win4.innerWidth;
-  _baseScreenHeight = _win4.innerHeight;
+  _baseScreenWidth = _win5.innerWidth;
+  _baseScreenHeight = _win5.innerHeight;
 };
 var _onResize = function _onResize2(force) {
   _scrollers.cache++;
-  (force === true || !_refreshing && !_ignoreResize && !_doc4.fullscreenElement && !_doc4.webkitFullscreenElement && (!_ignoreMobileResize || _baseScreenWidth !== _win4.innerWidth || Math.abs(_win4.innerHeight - _baseScreenHeight) > _win4.innerHeight * 0.25)) && _resizeDelay.restart(true);
+  (force === true || !_refreshing && !_ignoreResize && !_doc5.fullscreenElement && !_doc5.webkitFullscreenElement && (!_ignoreMobileResize || _baseScreenWidth !== _win5.innerWidth || Math.abs(_win5.innerHeight - _baseScreenHeight) > _win5.innerHeight * 0.25)) && _resizeDelay.restart(true);
 };
 var _listeners2 = {};
 var _emptyArray2 = [];
@@ -5110,7 +6377,7 @@ var _clearScrollMemory = function _clearScrollMemory2(scrollRestoration, force) 
   (force || !_refreshingAll) && _scrollers.forEach(function(obj) {
     return _isFunction3(obj) && obj.cacheID++ && (obj.rec = 0);
   });
-  _isString3(scrollRestoration) && (_win4.history.scrollRestoration = _scrollRestoration = scrollRestoration);
+  _isString5(scrollRestoration) && (_win5.history.scrollRestoration = _scrollRestoration = scrollRestoration);
 };
 var _refreshingAll;
 var _refreshID = 0;
@@ -5124,19 +6391,19 @@ var _queueRefreshAll = function _queueRefreshAll2() {
   }
 };
 var _refresh100vh = function _refresh100vh2() {
-  _body2.appendChild(_div100vh);
-  _100vh = !_normalizer2 && _div100vh.offsetHeight || _win4.innerHeight;
-  _body2.removeChild(_div100vh);
+  _body3.appendChild(_div100vh);
+  _100vh = !_normalizer2 && _div100vh.offsetHeight || _win5.innerHeight;
+  _body3.removeChild(_div100vh);
 };
 var _hideAllMarkers = function _hideAllMarkers2(hide) {
-  return _toArray(".gsap-marker-start, .gsap-marker-end, .gsap-marker-scroller-start, .gsap-marker-scroller-end").forEach(function(el) {
+  return _toArray2(".gsap-marker-start, .gsap-marker-end, .gsap-marker-scroller-start, .gsap-marker-scroller-end").forEach(function(el) {
     return el.style.display = hide ? "none" : "block";
   });
 };
 var _refreshAll = function _refreshAll2(force, skipRevert) {
-  _docEl2 = _doc4.documentElement;
-  _body2 = _doc4.body;
-  _root2 = [_win4, _doc4, _docEl2, _body2];
+  _docEl2 = _doc5.documentElement;
+  _body3 = _doc5.body;
+  _root2 = [_win5, _doc5, _docEl2, _body3];
   if (_lastScrollTime && !force && !_isReverted) {
     _addListener3(ScrollTrigger2, "scrollEnd", _softRefresh);
     return;
@@ -5277,7 +6544,7 @@ var _capsExp2 = /([A-Z])/g;
 var _setState = function _setState2(state) {
   if (state) {
     var style = state.t.style, l = state.length, i = 0, p, value;
-    (state.t._gsap || gsap3.core.getCache(state.t)).uncache = 1;
+    (state.t._gsap || gsap4.core.getCache(state.t)).uncache = 1;
     for (; i < l; i += 2) {
       value = state[i + 1];
       p = state[i];
@@ -5312,16 +6579,16 @@ var _winOffsets = {
 };
 var _parsePosition3 = function _parsePosition4(value, trigger, scrollerSize, direction, scroll, marker, markerScroller, self, scrollerBounds, borderWidth, useFixedPosition, scrollerMax, containerAnimation, clampZeroProp) {
   _isFunction3(value) && (value = value(self));
-  if (_isString3(value) && value.substr(0, 3) === "max") {
+  if (_isString5(value) && value.substr(0, 3) === "max") {
     value = scrollerMax + (value.charAt(4) === "=" ? _offsetToPx("0" + value.substr(3), scrollerSize) : 0);
   }
   var time = containerAnimation ? containerAnimation.time() : 0, p1, p2, element;
   containerAnimation && containerAnimation.seek(0);
   isNaN(value) || (value = +value);
-  if (!_isNumber3(value)) {
+  if (!_isNumber5(value)) {
     _isFunction3(trigger) && (trigger = trigger(self));
     var offsets = (value || "0").split(" "), bounds, localOffset, globalOffset, display;
-    element = _getTarget(trigger, self) || _body2;
+    element = _getTarget(trigger, self) || _body3;
     bounds = _getBounds(element) || {};
     if ((!bounds || !bounds.left && !bounds.top) && _getComputedStyle(element).display === "none") {
       display = element.style.display;
@@ -5335,7 +6602,7 @@ var _parsePosition3 = function _parsePosition4(value, trigger, scrollerSize, dir
     markerScroller && _positionMarker(markerScroller, globalOffset, direction, scrollerSize - globalOffset < 20 || markerScroller._isStart && globalOffset > 20);
     scrollerSize -= scrollerSize - globalOffset;
   } else {
-    containerAnimation && (value = gsap3.utils.mapRange(containerAnimation.scrollTrigger.start, containerAnimation.scrollTrigger.end, 0, scrollerMax, value));
+    containerAnimation && (value = gsap4.utils.mapRange(containerAnimation.scrollTrigger.start, containerAnimation.scrollTrigger.end, 0, scrollerMax, value));
     markerScroller && _positionMarker(markerScroller, scrollerSize, direction, true);
   }
   if (clampZeroProp) {
@@ -5345,7 +6612,7 @@ var _parsePosition3 = function _parsePosition4(value, trigger, scrollerSize, dir
   if (marker) {
     var position = value + scrollerSize, isStart = marker._isStart;
     p1 = "scroll" + direction.d2;
-    _positionMarker(marker, position, direction, isStart && position > 20 || !isStart && (useFixedPosition ? Math.max(_body2[p1], _docEl2[p1]) : marker.parentNode[p1]) <= position + 1);
+    _positionMarker(marker, position, direction, isStart && position > 20 || !isStart && (useFixedPosition ? Math.max(_body3[p1], _docEl2[p1]) : marker.parentNode[p1]) <= position + 1);
     if (useFixedPosition) {
       scrollerBounds = _getBounds(markerScroller);
       useFixedPosition && (marker.style[direction.op.p] = scrollerBounds[direction.op.p] - direction.op.m - marker._offset + _px);
@@ -5365,7 +6632,7 @@ var _prefixExp = /(webkit|moz|length|cssText|inset)/i;
 var _reparent = function _reparent2(element, parent, top, left) {
   if (element.parentNode !== parent) {
     var style = element.style, p, cs;
-    if (parent === _body2) {
+    if (parent === _body3) {
       element._stOrig = style.cssText;
       cs = _getComputedStyle(element);
       for (p in cs) {
@@ -5378,7 +6645,7 @@ var _reparent = function _reparent2(element, parent, top, left) {
     } else {
       style.cssText = element._stOrig;
     }
-    gsap3.core.getCache(element).uncache = 1;
+    gsap4.core.getCache(element).uncache = 1;
     parent.appendChild(element);
   }
 };
@@ -5398,7 +6665,7 @@ var _interruptionTracker = function _interruptionTracker2(getValueFunc, initialV
 var _shiftMarker = function _shiftMarker2(marker, direction, value) {
   var vars = {};
   vars[direction.p] = "+=" + value;
-  gsap3.set(marker, vars);
+  gsap4.set(marker, vars);
 };
 var _getTweenCreator = function _getTweenCreator2(scroller, direction) {
   var getScroll = _getScrollFunc(scroller, direction), prop = "_scroll" + direction.p2, getTween = function getTween2(scrollTo, vars, initialValue, change1, change2) {
@@ -5425,7 +6692,7 @@ var _getTweenCreator = function _getTweenCreator2(scroller, direction) {
       getTween2.tween = 0;
       onComplete && onComplete.call(tween);
     };
-    tween = getTween2.tween = gsap3.to(scroller, vars);
+    tween = getTween2.tween = gsap4.to(scroller, vars);
     return tween;
   };
   scroller[prop] = getScroll;
@@ -5438,7 +6705,7 @@ var _getTweenCreator = function _getTweenCreator2(scroller, direction) {
 };
 var ScrollTrigger2 = /* @__PURE__ */ function() {
   function ScrollTrigger3(vars, animation) {
-    _coreInitted3 || ScrollTrigger3.register(gsap3) || console.warn("Please gsap.registerPlugin(ScrollTrigger)");
+    _coreInitted3 || ScrollTrigger3.register(gsap4) || console.warn("Please gsap.registerPlugin(ScrollTrigger)");
     _context3(this);
     this.init(vars, animation);
   }
@@ -5450,10 +6717,10 @@ var ScrollTrigger2 = /* @__PURE__ */ function() {
       this.update = this.refresh = this.kill = _passThrough3;
       return;
     }
-    vars = _setDefaults3(_isString3(vars) || _isNumber3(vars) || vars.nodeType ? {
+    vars = _setDefaults3(_isString5(vars) || _isNumber5(vars) || vars.nodeType ? {
       trigger: vars
     } : vars, _defaults2);
-    var _vars = vars, onUpdate = _vars.onUpdate, toggleClass = _vars.toggleClass, id = _vars.id, onToggle = _vars.onToggle, onRefresh = _vars.onRefresh, scrub = _vars.scrub, trigger = _vars.trigger, pin = _vars.pin, pinSpacing = _vars.pinSpacing, invalidateOnRefresh = _vars.invalidateOnRefresh, anticipatePin = _vars.anticipatePin, onScrubComplete = _vars.onScrubComplete, onSnapComplete = _vars.onSnapComplete, once = _vars.once, snap3 = _vars.snap, pinReparent = _vars.pinReparent, pinSpacer = _vars.pinSpacer, containerAnimation = _vars.containerAnimation, fastScrollEnd = _vars.fastScrollEnd, preventOverlaps = _vars.preventOverlaps, direction = vars.horizontal || vars.containerAnimation && vars.horizontal !== false ? _horizontal : _vertical, isToggle = !scrub && scrub !== 0, scroller = _getTarget(vars.scroller || _win4), scrollerCache = gsap3.core.getCache(scroller), isViewport = _isViewport3(scroller), useFixedPosition = ("pinType" in vars ? vars.pinType : _getProxyProp(scroller, "pinType") || isViewport && "fixed") === "fixed", callbacks = [vars.onEnter, vars.onLeave, vars.onEnterBack, vars.onLeaveBack], toggleActions = isToggle && vars.toggleActions.split(" "), markers = "markers" in vars ? vars.markers : _defaults2.markers, borderWidth = isViewport ? 0 : parseFloat(_getComputedStyle(scroller)["border" + direction.p2 + _Width]) || 0, self = this, onRefreshInit = vars.onRefreshInit && function() {
+    var _vars = vars, onUpdate = _vars.onUpdate, toggleClass = _vars.toggleClass, id = _vars.id, onToggle = _vars.onToggle, onRefresh = _vars.onRefresh, scrub = _vars.scrub, trigger = _vars.trigger, pin = _vars.pin, pinSpacing = _vars.pinSpacing, invalidateOnRefresh = _vars.invalidateOnRefresh, anticipatePin = _vars.anticipatePin, onScrubComplete = _vars.onScrubComplete, onSnapComplete = _vars.onSnapComplete, once = _vars.once, snap3 = _vars.snap, pinReparent = _vars.pinReparent, pinSpacer = _vars.pinSpacer, containerAnimation = _vars.containerAnimation, fastScrollEnd = _vars.fastScrollEnd, preventOverlaps = _vars.preventOverlaps, direction = vars.horizontal || vars.containerAnimation && vars.horizontal !== false ? _horizontal : _vertical, isToggle = !scrub && scrub !== 0, scroller = _getTarget(vars.scroller || _win5), scrollerCache = gsap4.core.getCache(scroller), isViewport = _isViewport3(scroller), useFixedPosition = ("pinType" in vars ? vars.pinType : _getProxyProp(scroller, "pinType") || isViewport && "fixed") === "fixed", callbacks = [vars.onEnter, vars.onLeave, vars.onEnterBack, vars.onLeaveBack], toggleActions = isToggle && vars.toggleActions.split(" "), markers = "markers" in vars ? vars.markers : _defaults2.markers, borderWidth = isViewport ? 0 : parseFloat(_getComputedStyle(scroller)["border" + direction.p2 + _Width]) || 0, self = this, onRefreshInit = vars.onRefreshInit && function() {
       return vars.onRefreshInit(self);
     }, getScrollerSize = _getSizeFunc(scroller, isViewport, direction), getScrollerOffsets = _getOffsetsFunc(scroller, isViewport), lastSnap = 0, lastRefresh = 0, prevProgress = 0, scrollFunc = _getScrollFunc(scroller, direction), tweenTo, pinCache, snapFunc, scroll1, scroll2, start, end, markerStart, markerEnd, markerStartTrigger, markerEndTrigger, markerVars, executingOnRefresh, change, pinOriginalState, pinActiveState, pinState, spacer, offset, pinGetter, pinSetter, pinStart, pinChange, spacingStart, spacerState, markerStartSetter, pinMoves, markerEndSetter, cs, snap1, snap22, scrubTween, scrubSmooth, snapDurClamp, snapDelayedCall, prevScroll, prevAnimProgress, caMarkerSetter, customRevertReturn;
     self._startClamp = self._endClamp = false;
@@ -5474,12 +6741,12 @@ var ScrollTrigger2 = /* @__PURE__ */ function() {
     };
     self.tweenTo = tweenTo = scrollerCache.tweenScroll[direction.p];
     self.scrubDuration = function(value) {
-      scrubSmooth = _isNumber3(value) && value;
+      scrubSmooth = _isNumber5(value) && value;
       if (!scrubSmooth) {
         scrubTween && scrubTween.progress(1).kill();
         scrubTween = 0;
       } else {
-        scrubTween ? scrubTween.duration(value) : scrubTween = gsap3.to(animation, {
+        scrubTween ? scrubTween.duration(value) : scrubTween = gsap4.to(animation, {
           ease: "expo",
           totalProgress: "+=0",
           inherit: false,
@@ -5506,38 +6773,38 @@ var ScrollTrigger2 = /* @__PURE__ */ function() {
           snapTo: snap3
         };
       }
-      "scrollBehavior" in _body2.style && gsap3.set(isViewport ? [_body2, _docEl2] : scroller, {
+      "scrollBehavior" in _body3.style && gsap4.set(isViewport ? [_body3, _docEl2] : scroller, {
         scrollBehavior: "auto"
       });
       _scrollers.forEach(function(o) {
-        return _isFunction3(o) && o.target === (isViewport ? _doc4.scrollingElement || _docEl2 : scroller) && (o.smooth = false);
+        return _isFunction3(o) && o.target === (isViewport ? _doc5.scrollingElement || _docEl2 : scroller) && (o.smooth = false);
       });
       snapFunc = _isFunction3(snap3.snapTo) ? snap3.snapTo : snap3.snapTo === "labels" ? _getClosestLabel(animation) : snap3.snapTo === "labelsDirectional" ? _getLabelAtDirection(animation) : snap3.directional !== false ? function(value, st) {
         return _snapDirectional(snap3.snapTo)(value, _getTime2() - lastRefresh < 500 ? 0 : st.direction);
-      } : gsap3.utils.snap(snap3.snapTo);
+      } : gsap4.utils.snap(snap3.snapTo);
       snapDurClamp = snap3.duration || {
         min: 0.1,
         max: 2
       };
       snapDurClamp = _isObject3(snapDurClamp) ? _clamp4(snapDurClamp.min, snapDurClamp.max) : _clamp4(snapDurClamp, snapDurClamp);
-      snapDelayedCall = gsap3.delayedCall(snap3.delay || scrubSmooth / 2 || 0.1, function() {
+      snapDelayedCall = gsap4.delayedCall(snap3.delay || scrubSmooth / 2 || 0.1, function() {
         var scroll = scrollFunc(), refreshedRecently = _getTime2() - lastRefresh < 500, tween = tweenTo.tween;
         if ((refreshedRecently || Math.abs(self.getVelocity()) < 10) && !tween && !_pointerIsDown && lastSnap !== scroll) {
-          var progress = (scroll - start) / change, totalProgress = animation && !isToggle ? animation.totalProgress() : progress, velocity = refreshedRecently ? 0 : (totalProgress - snap22) / (_getTime2() - _time2) * 1e3 || 0, change1 = gsap3.utils.clamp(-progress, 1 - progress, _abs(velocity / 2) * velocity / 0.185), naturalEnd = progress + (snap3.inertia === false ? 0 : change1), endValue, endScroll, _snap = snap3, onStart = _snap.onStart, _onInterrupt = _snap.onInterrupt, _onComplete = _snap.onComplete;
+          var progress = (scroll - start) / change, totalProgress = animation && !isToggle ? animation.totalProgress() : progress, velocity = refreshedRecently ? 0 : (totalProgress - snap22) / (_getTime2() - _time2) * 1e3 || 0, change1 = gsap4.utils.clamp(-progress, 1 - progress, _abs2(velocity / 2) * velocity / 0.185), naturalEnd = progress + (snap3.inertia === false ? 0 : change1), endValue, endScroll, _snap = snap3, onStart = _snap.onStart, _onInterrupt = _snap.onInterrupt, _onComplete = _snap.onComplete;
           endValue = snapFunc(naturalEnd, self);
-          _isNumber3(endValue) || (endValue = naturalEnd);
+          _isNumber5(endValue) || (endValue = naturalEnd);
           endScroll = Math.max(0, Math.round(start + endValue * change));
           if (scroll <= end && scroll >= start && endScroll !== scroll) {
-            if (tween && !tween._initted && tween.data <= _abs(endScroll - scroll)) {
+            if (tween && !tween._initted && tween.data <= _abs2(endScroll - scroll)) {
               return;
             }
             if (snap3.inertia === false) {
               change1 = endValue - progress;
             }
             tweenTo(endScroll, {
-              duration: snapDurClamp(_abs(Math.max(_abs(naturalEnd - totalProgress), _abs(endValue - totalProgress)) * 0.185 / velocity / 0.05 || 0)),
+              duration: snapDurClamp(_abs2(Math.max(_abs2(naturalEnd - totalProgress), _abs2(endValue - totalProgress)) * 0.185 / velocity / 0.05 || 0)),
               ease: snap3.ease || "power3",
-              data: _abs(endScroll - scroll),
+              data: _abs2(endScroll - scroll),
               // record the distance so that if another snap tween occurs (conflict) we can prioritize the closest snap.
               onInterrupt: function onInterrupt() {
                 return snapDelayedCall.restart(true) && _onInterrupt && _onInterrupt(self);
@@ -5565,14 +6832,14 @@ var ScrollTrigger2 = /* @__PURE__ */ function() {
     customRevertReturn = trigger && trigger._gsap && trigger._gsap.stRevert;
     customRevertReturn && (customRevertReturn = customRevertReturn(self));
     pin = pin === true ? trigger : _getTarget(pin);
-    _isString3(toggleClass) && (toggleClass = {
+    _isString5(toggleClass) && (toggleClass = {
       targets: trigger,
       className: toggleClass
     });
     if (pin) {
       pinSpacing === false || pinSpacing === _margin || (pinSpacing = !pinSpacing && pin.parentNode && pin.parentNode.style && _getComputedStyle(pin.parentNode).display === "flex" ? false : _padding);
       self.pin = pin;
-      pinCache = gsap3.core.getCache(pin);
+      pinCache = gsap4.core.getCache(pin);
       if (!pinCache.spacer) {
         if (pinSpacer) {
           pinSpacer = _getTarget(pinSpacer);
@@ -5580,21 +6847,21 @@ var ScrollTrigger2 = /* @__PURE__ */ function() {
           pinCache.spacerIsNative = !!pinSpacer;
           pinSpacer && (pinCache.spacerState = _getState(pinSpacer));
         }
-        pinCache.spacer = spacer = pinSpacer || _doc4.createElement("div");
+        pinCache.spacer = spacer = pinSpacer || _doc5.createElement("div");
         spacer.classList.add("pin-spacer");
         id && spacer.classList.add("pin-spacer-" + id);
         pinCache.pinState = pinOriginalState = _getState(pin);
       } else {
         pinOriginalState = pinCache.pinState;
       }
-      vars.force3D !== false && gsap3.set(pin, {
+      vars.force3D !== false && gsap4.set(pin, {
         force3D: true
       });
       self.spacer = spacer = pinCache.spacer;
       cs = _getComputedStyle(pin);
       spacingStart = cs[pinSpacing + direction.os2];
-      pinGetter = gsap3.getProperty(pin);
-      pinSetter = gsap3.quickSetter(pin, direction.a, _px);
+      pinGetter = gsap4.getProperty(pin);
+      pinSetter = gsap4.quickSetter(pin, direction.a, _px);
       _swapPinIn(pin, spacer, cs);
       pinState = _getState(pin);
     }
@@ -5606,14 +6873,14 @@ var ScrollTrigger2 = /* @__PURE__ */ function() {
       var content = _getTarget(_getProxyProp(scroller, "content") || scroller);
       markerStart = this.markerStart = _createMarker("start", id, content, direction, markerVars, offset, 0, containerAnimation);
       markerEnd = this.markerEnd = _createMarker("end", id, content, direction, markerVars, offset, 0, containerAnimation);
-      containerAnimation && (caMarkerSetter = gsap3.quickSetter([markerStart, markerEnd], direction.a, _px));
+      containerAnimation && (caMarkerSetter = gsap4.quickSetter([markerStart, markerEnd], direction.a, _px));
       if (!useFixedPosition && !(_proxies.length && _getProxyProp(scroller, "fixedMarkers") === true)) {
-        _makePositionable(isViewport ? _body2 : scroller);
-        gsap3.set([markerStartTrigger, markerEndTrigger], {
+        _makePositionable(isViewport ? _body3 : scroller);
+        gsap4.set([markerStartTrigger, markerEndTrigger], {
           force3D: true
         });
-        markerStartSetter = gsap3.quickSetter(markerStartTrigger, direction.a, _px);
-        markerEndSetter = gsap3.quickSetter(markerEndTrigger, direction.a, _px);
+        markerStartSetter = gsap4.quickSetter(markerStartTrigger, direction.a, _px);
+        markerEndSetter = gsap4.quickSetter(markerEndTrigger, direction.a, _px);
       }
     }
     if (containerAnimation) {
@@ -5681,8 +6948,8 @@ var ScrollTrigger2 = /* @__PURE__ */ function() {
       self._subPinOffset = false;
       var size = getScrollerSize(), scrollerBounds = getScrollerOffsets(), max = containerAnimation ? containerAnimation.duration() : _maxScroll(scroller, direction), isFirstRefresh = change <= 0.01, offset2 = 0, otherPinOffset = pinOffset || 0, parsedEnd = _isObject3(position) ? position.end : vars.end, parsedEndTrigger = vars.endTrigger || trigger, parsedStart = _isObject3(position) ? position.start : vars.start || (vars.start === 0 || !trigger ? 0 : pin ? "0 0" : "0 100%"), pinnedContainer = self.pinnedContainer = vars.pinnedContainer && _getTarget(vars.pinnedContainer, self), triggerIndex = trigger && Math.max(0, _triggers.indexOf(self)) || 0, i = triggerIndex, cs2, bounds, scroll, isVertical, override, curTrigger, curPin, oppositeScroll, initted, revertedPins, forcedOverflow, markerStartOffset, markerEndOffset;
       if (markers && _isObject3(position)) {
-        markerStartOffset = gsap3.getProperty(markerStartTrigger, direction.p);
-        markerEndOffset = gsap3.getProperty(markerEndTrigger, direction.p);
+        markerStartOffset = gsap4.getProperty(markerStartTrigger, direction.p);
+        markerEndOffset = gsap4.getProperty(markerEndTrigger, direction.p);
       }
       while (i-- > 0) {
         curTrigger = _triggers[i];
@@ -5702,12 +6969,12 @@ var ScrollTrigger2 = /* @__PURE__ */ function() {
       parsedStart = _parseClamp(parsedStart, "start", self);
       start = _parsePosition3(parsedStart, trigger, size, direction, scrollFunc(), markerStart, markerStartTrigger, self, scrollerBounds, borderWidth, useFixedPosition, max, containerAnimation, self._startClamp && "_startClamp") || (pin ? -1e-3 : 0);
       _isFunction3(parsedEnd) && (parsedEnd = parsedEnd(self));
-      if (_isString3(parsedEnd) && !parsedEnd.indexOf("+=")) {
+      if (_isString5(parsedEnd) && !parsedEnd.indexOf("+=")) {
         if (~parsedEnd.indexOf(" ")) {
-          parsedEnd = (_isString3(parsedStart) ? parsedStart.split(" ")[0] : "") + parsedEnd;
+          parsedEnd = (_isString5(parsedStart) ? parsedStart.split(" ")[0] : "") + parsedEnd;
         } else {
           offset2 = _offsetToPx(parsedEnd.substr(2), size);
-          parsedEnd = _isString3(parsedStart) ? parsedStart : (containerAnimation ? gsap3.utils.mapRange(0, containerAnimation.duration(), containerAnimation.scrollTrigger.start, containerAnimation.scrollTrigger.end, start) : start) + offset2;
+          parsedEnd = _isString5(parsedStart) ? parsedStart : (containerAnimation ? gsap4.utils.mapRange(0, containerAnimation.duration(), containerAnimation.scrollTrigger.start, containerAnimation.scrollTrigger.end, start) : start) + offset2;
           parsedEndTrigger = trigger;
         }
       }
@@ -5735,14 +7002,14 @@ var ScrollTrigger2 = /* @__PURE__ */ function() {
       }
       change = end - start || (start -= 0.01) && 1e-3;
       if (isFirstRefresh) {
-        prevProgress = gsap3.utils.clamp(0, 1, gsap3.utils.normalize(start, end, prevScroll));
+        prevProgress = gsap4.utils.clamp(0, 1, gsap4.utils.normalize(start, end, prevScroll));
       }
       self._pinPush = otherPinOffset;
       if (markerStart && offset2) {
         cs2 = {};
         cs2[direction.a] = "+=" + offset2;
         pinnedContainer && (cs2[direction.p] = "-=" + scrollFunc());
-        gsap3.set([markerStart, markerEnd], cs2);
+        gsap4.set([markerStart, markerEnd], cs2);
       }
       if (pin && !(_clampingMax && self.end >= _maxScroll(scroller, direction))) {
         cs2 = _getComputedStyle(pin);
@@ -5750,12 +7017,12 @@ var ScrollTrigger2 = /* @__PURE__ */ function() {
         scroll = scrollFunc();
         pinStart = parseFloat(pinGetter(direction.a)) + otherPinOffset;
         if (!max && end > 1) {
-          forcedOverflow = (isViewport ? _doc4.scrollingElement || _docEl2 : scroller).style;
+          forcedOverflow = (isViewport ? _doc5.scrollingElement || _docEl2 : scroller).style;
           forcedOverflow = {
             style: forcedOverflow,
             value: forcedOverflow["overflow" + direction.a.toUpperCase()]
           };
-          if (isViewport && _getComputedStyle(_body2)["overflow" + direction.a.toUpperCase()] !== "scroll") {
+          if (isViewport && _getComputedStyle(_body3)["overflow" + direction.a.toUpperCase()] !== "scroll") {
             forcedOverflow.style["overflow" + direction.a.toUpperCase()] = "scroll";
           }
         }
@@ -5819,7 +7086,7 @@ var ScrollTrigger2 = /* @__PURE__ */ function() {
         forcedOverflow && (forcedOverflow.value ? forcedOverflow.style["overflow" + direction.a.toUpperCase()] = forcedOverflow.value : forcedOverflow.style.removeProperty("overflow-" + direction.a));
       } else if (trigger && scrollFunc() && !containerAnimation) {
         bounds = trigger.parentNode;
-        while (bounds && bounds !== _body2) {
+        while (bounds && bounds !== _body3) {
           if (bounds._pinOffset) {
             start -= bounds._pinOffset;
             end -= bounds._pinOffset;
@@ -5846,14 +7113,14 @@ var ScrollTrigger2 = /* @__PURE__ */ function() {
       _refreshing = 0;
       animation && isToggle && (animation._initted || prevAnimProgress) && animation.progress() !== prevAnimProgress && animation.progress(prevAnimProgress || 0, true).render(animation.time(), true, true);
       if (isFirstRefresh || prevProgress !== self.progress || containerAnimation || invalidateOnRefresh || animation && !animation._initted) {
-        animation && !isToggle && animation.totalProgress(containerAnimation && start < -1e-3 && !prevProgress ? gsap3.utils.normalize(start, end, 0) : prevProgress, true);
+        animation && !isToggle && animation.totalProgress(containerAnimation && start < -1e-3 && !prevProgress ? gsap4.utils.normalize(start, end, 0) : prevProgress, true);
         self.progress = isFirstRefresh || (scroll1 - start) / change === prevProgress ? 0 : prevProgress;
       }
       pin && pinSpacing && (spacer._pinOffset = Math.round(self.progress * pinChange));
       scrubTween && scrubTween.invalidate();
       if (!isNaN(markerStartOffset)) {
-        markerStartOffset -= gsap3.getProperty(markerStartTrigger, direction.p);
-        markerEndOffset -= gsap3.getProperty(markerEndTrigger, direction.p);
+        markerStartOffset -= gsap4.getProperty(markerStartTrigger, direction.p);
+        markerEndOffset -= gsap4.getProperty(markerEndTrigger, direction.p);
         _shiftMarker(markerStartTrigger, direction, markerStartOffset);
         _shiftMarker(markerStart, direction, markerStartOffset - (pinOffset || 0));
         _shiftMarker(markerEndTrigger, direction, markerEndOffset);
@@ -5880,7 +7147,7 @@ var ScrollTrigger2 = /* @__PURE__ */ function() {
     };
     self.getTrailing = function(name) {
       var i = _triggers.indexOf(self), a = self.direction > 0 ? _triggers.slice(0, i).reverse() : _triggers.slice(i + 1);
-      return (_isString3(name) ? a.filter(function(t) {
+      return (_isString5(name) ? a.filter(function(t) {
         return t.vars.preventOverlaps === name;
       }) : a).filter(function(t) {
         return self.direction > 0 ? t.end <= start : t.start >= end;
@@ -5939,13 +7206,13 @@ var ScrollTrigger2 = /* @__PURE__ */ function() {
         if (pin) {
           reset && pinSpacing && (spacer.style[pinSpacing + direction.os2] = spacingStart);
           if (!useFixedPosition) {
-            pinSetter(_round3(pinStart + pinChange * clipped));
+            pinSetter(_round5(pinStart + pinChange * clipped));
           } else if (stateChanged) {
             isAtMax = !reset && clipped > prevProgress2 && end + 1 > scroll && scroll + 1 >= _maxScroll(scroller, direction);
             if (pinReparent) {
               if (!reset && (isActive || isAtMax)) {
                 var bounds = _getBounds(pin, true), _offset = scroll - start;
-                _reparent(pin, _body2, bounds.top + (direction === _vertical ? _offset : 0) + _px, bounds.left + (direction === _vertical ? 0 : _offset) + _px);
+                _reparent(pin, _body3, bounds.top + (direction === _vertical ? _offset : 0) + _px, bounds.left + (direction === _vertical ? 0 : _offset) + _px);
               } else {
                 _reparent(pin, spacer);
               }
@@ -5955,7 +7222,7 @@ var ScrollTrigger2 = /* @__PURE__ */ function() {
           }
         }
         snap3 && !tweenTo.tween && !_refreshing && !_startup2 && snapDelayedCall.restart(true);
-        toggleClass && (toggled || once && clipped && (clipped < 1 || !_limitCallbacks)) && _toArray(toggleClass.targets).forEach(function(el) {
+        toggleClass && (toggled || once && clipped && (clipped < 1 || !_limitCallbacks)) && _toArray2(toggleClass.targets).forEach(function(el) {
           return el.classList[isActive || once ? "add" : "remove"](toggleClass.className);
         });
         onUpdate && !isToggle && !reset && onUpdate(self);
@@ -5983,7 +7250,7 @@ var ScrollTrigger2 = /* @__PURE__ */ function() {
               callbacks[toggleState] && _callback3(self, callbacks[toggleState]);
             }
           }
-          if (fastScrollEnd && !isActive && Math.abs(self.getVelocity()) > (_isNumber3(fastScrollEnd) ? fastScrollEnd : 2500)) {
+          if (fastScrollEnd && !isActive && Math.abs(self.getVelocity()) > (_isNumber5(fastScrollEnd) ? fastScrollEnd : 2500)) {
             _endAnimation(self.callbackAnimation);
             scrubTween ? scrubTween.progress(1) : _endAnimation(animation, action === "reverse" ? 1 : !clipped, 1);
           }
@@ -6101,7 +7368,7 @@ var ScrollTrigger2 = /* @__PURE__ */ function() {
         _scrollers.cache++;
         start || end || self.refresh();
       };
-      gsap3.delayedCall(0.01, self.update);
+      gsap4.delayedCall(0.01, self.update);
       change = 0.01;
       start = end = 0;
     } else {
@@ -6111,7 +7378,7 @@ var ScrollTrigger2 = /* @__PURE__ */ function() {
   };
   ScrollTrigger3.register = function register3(core) {
     if (!_coreInitted3) {
-      gsap3 = core || _getGSAP3();
+      gsap4 = core || _getGSAP5();
       _windowExists5() && window.document && ScrollTrigger3.enable();
       _coreInitted3 = _enabled;
     }
@@ -6130,13 +7397,13 @@ var ScrollTrigger2 = /* @__PURE__ */ function() {
     _triggers.forEach(function(trigger) {
       return trigger[kill ? "kill" : "disable"](reset);
     });
-    _removeListener3(_win4, "wheel", _onScroll3);
-    _removeListener3(_doc4, "scroll", _onScroll3);
+    _removeListener3(_win5, "wheel", _onScroll3);
+    _removeListener3(_doc5, "scroll", _onScroll3);
     clearInterval(_syncInterval);
-    _removeListener3(_doc4, "touchcancel", _passThrough3);
-    _removeListener3(_body2, "touchstart", _passThrough3);
-    _multiListener(_removeListener3, _doc4, "pointerdown,touchstart,mousedown", _pointerDownHandler);
-    _multiListener(_removeListener3, _doc4, "pointerup,touchend,mouseup", _pointerUpHandler);
+    _removeListener3(_doc5, "touchcancel", _passThrough3);
+    _removeListener3(_body3, "touchstart", _passThrough3);
+    _multiListener(_removeListener3, _doc5, "pointerdown,touchstart,mousedown", _pointerDownHandler);
+    _multiListener(_removeListener3, _doc5, "pointerup,touchend,mouseup", _pointerUpHandler);
     _resizeDelay.kill();
     _iterateAutoRefresh(_removeListener3);
     for (var i = 0; i < _scrollers.length; i += 3) {
@@ -6145,50 +7412,50 @@ var ScrollTrigger2 = /* @__PURE__ */ function() {
     }
   };
   ScrollTrigger3.enable = function enable() {
-    _win4 = window;
-    _doc4 = document;
-    _docEl2 = _doc4.documentElement;
-    _body2 = _doc4.body;
-    if (gsap3) {
-      _toArray = gsap3.utils.toArray;
-      _clamp4 = gsap3.utils.clamp;
-      _context3 = gsap3.core.context || _passThrough3;
-      _suppressOverwrites2 = gsap3.core.suppressOverwrites || _passThrough3;
-      _scrollRestoration = _win4.history.scrollRestoration || "auto";
-      _lastScroll = _win4.pageYOffset || 0;
-      gsap3.core.globals("ScrollTrigger", ScrollTrigger3);
-      if (_body2) {
+    _win5 = window;
+    _doc5 = document;
+    _docEl2 = _doc5.documentElement;
+    _body3 = _doc5.body;
+    if (gsap4) {
+      _toArray2 = gsap4.utils.toArray;
+      _clamp4 = gsap4.utils.clamp;
+      _context3 = gsap4.core.context || _passThrough3;
+      _suppressOverwrites2 = gsap4.core.suppressOverwrites || _passThrough3;
+      _scrollRestoration = _win5.history.scrollRestoration || "auto";
+      _lastScroll = _win5.pageYOffset || 0;
+      gsap4.core.globals("ScrollTrigger", ScrollTrigger3);
+      if (_body3) {
         _enabled = 1;
         _div100vh = document.createElement("div");
         _div100vh.style.height = "100vh";
         _div100vh.style.position = "absolute";
         _refresh100vh();
         _rafBugFix();
-        Observer.register(gsap3);
+        Observer.register(gsap4);
         ScrollTrigger3.isTouch = Observer.isTouch;
         _fixIOSBug = Observer.isTouch && /(iPad|iPhone|iPod|Mac)/g.test(navigator.userAgent);
         _ignoreMobileResize = Observer.isTouch === 1;
-        _addListener3(_win4, "wheel", _onScroll3);
-        _root2 = [_win4, _doc4, _docEl2, _body2];
-        if (gsap3.matchMedia) {
+        _addListener3(_win5, "wheel", _onScroll3);
+        _root2 = [_win5, _doc5, _docEl2, _body3];
+        if (gsap4.matchMedia) {
           ScrollTrigger3.matchMedia = function(vars) {
-            var mm = gsap3.matchMedia(), p;
+            var mm = gsap4.matchMedia(), p;
             for (p in vars) {
               mm.add(p, vars[p]);
             }
             return mm;
           };
-          gsap3.addEventListener("matchMediaInit", function() {
+          gsap4.addEventListener("matchMediaInit", function() {
             return _revertAll();
           });
-          gsap3.addEventListener("matchMediaRevert", function() {
+          gsap4.addEventListener("matchMediaRevert", function() {
             return _revertRecorded();
           });
-          gsap3.addEventListener("matchMedia", function() {
+          gsap4.addEventListener("matchMedia", function() {
             _refreshAll(0, 1);
             _dispatch3("matchMedia");
           });
-          gsap3.matchMedia().add("(orientation: portrait)", function() {
+          gsap4.matchMedia().add("(orientation: portrait)", function() {
             _setBaseDimensions();
             return _setBaseDimensions;
           });
@@ -6196,43 +7463,43 @@ var ScrollTrigger2 = /* @__PURE__ */ function() {
           console.warn("Requires GSAP 3.11.0 or later");
         }
         _setBaseDimensions();
-        _addListener3(_doc4, "scroll", _onScroll3);
-        var bodyHasStyle = _body2.hasAttribute("style"), bodyStyle = _body2.style, border = bodyStyle.borderTopStyle, AnimationProto = gsap3.core.Animation.prototype, bounds, i;
+        _addListener3(_doc5, "scroll", _onScroll3);
+        var bodyHasStyle = _body3.hasAttribute("style"), bodyStyle = _body3.style, border = bodyStyle.borderTopStyle, AnimationProto = gsap4.core.Animation.prototype, bounds, i;
         AnimationProto.revert || Object.defineProperty(AnimationProto, "revert", {
           value: function value() {
             return this.time(-0.01, true);
           }
         });
         bodyStyle.borderTopStyle = "solid";
-        bounds = _getBounds(_body2);
+        bounds = _getBounds(_body3);
         _vertical.m = Math.round(bounds.top + _vertical.sc()) || 0;
         _horizontal.m = Math.round(bounds.left + _horizontal.sc()) || 0;
         border ? bodyStyle.borderTopStyle = border : bodyStyle.removeProperty("border-top-style");
         if (!bodyHasStyle) {
-          _body2.setAttribute("style", "");
-          _body2.removeAttribute("style");
+          _body3.setAttribute("style", "");
+          _body3.removeAttribute("style");
         }
         _syncInterval = setInterval(_sync, 250);
-        gsap3.delayedCall(0.5, function() {
+        gsap4.delayedCall(0.5, function() {
           return _startup2 = 0;
         });
-        _addListener3(_doc4, "touchcancel", _passThrough3);
-        _addListener3(_body2, "touchstart", _passThrough3);
-        _multiListener(_addListener3, _doc4, "pointerdown,touchstart,mousedown", _pointerDownHandler);
-        _multiListener(_addListener3, _doc4, "pointerup,touchend,mouseup", _pointerUpHandler);
-        _transformProp2 = gsap3.utils.checkPrefix("transform");
-        _stateProps.push(_transformProp2);
+        _addListener3(_doc5, "touchcancel", _passThrough3);
+        _addListener3(_body3, "touchstart", _passThrough3);
+        _multiListener(_addListener3, _doc5, "pointerdown,touchstart,mousedown", _pointerDownHandler);
+        _multiListener(_addListener3, _doc5, "pointerup,touchend,mouseup", _pointerUpHandler);
+        _transformProp3 = gsap4.utils.checkPrefix("transform");
+        _stateProps.push(_transformProp3);
         _coreInitted3 = _getTime2();
-        _resizeDelay = gsap3.delayedCall(0.2, _refreshAll).pause();
-        _autoRefresh = [_doc4, "visibilitychange", function() {
-          var w = _win4.innerWidth, h = _win4.innerHeight;
-          if (_doc4.hidden) {
+        _resizeDelay = gsap4.delayedCall(0.2, _refreshAll).pause();
+        _autoRefresh = [_doc5, "visibilitychange", function() {
+          var w = _win5.innerWidth, h = _win5.innerHeight;
+          if (_doc5.hidden) {
             _prevWidth = w;
             _prevHeight = h;
           } else if (_prevWidth !== w || _prevHeight !== h) {
             _onResize();
           }
-        }, _doc4, "DOMContentLoaded", _refreshAll, _win4, "load", _refreshAll, _win4, "resize", _onResize];
+        }, _doc5, "DOMContentLoaded", _refreshAll, _win5, "load", _refreshAll, _win5, "resize", _onResize];
         _iterateAutoRefresh(_addListener3);
         _triggers.forEach(function(trigger) {
           return trigger.enable(0, 1);
@@ -6260,7 +7527,7 @@ var ScrollTrigger2 = /* @__PURE__ */ function() {
       _scrollers.splice(i, isViewport ? 6 : 2);
     }
     if (vars) {
-      isViewport ? _proxies.unshift(_win4, vars, _body2, vars, _docEl2, vars) : _proxies.unshift(t, vars);
+      isViewport ? _proxies.unshift(_win5, vars, _body3, vars, _docEl2, vars) : _proxies.unshift(t, vars);
     }
   };
   ScrollTrigger3.clearMatchMedia = function clearMatchMedia(query) {
@@ -6269,13 +7536,13 @@ var ScrollTrigger2 = /* @__PURE__ */ function() {
     });
   };
   ScrollTrigger3.isInViewport = function isInViewport(element, ratio, horizontal) {
-    var bounds = (_isString3(element) ? _getTarget(element) : element).getBoundingClientRect(), offset = bounds[horizontal ? _width : _height] * ratio || 0;
-    return horizontal ? bounds.right - offset > 0 && bounds.left + offset < _win4.innerWidth : bounds.bottom - offset > 0 && bounds.top + offset < _win4.innerHeight;
+    var bounds = (_isString5(element) ? _getTarget(element) : element).getBoundingClientRect(), offset = bounds[horizontal ? _width : _height] * ratio || 0;
+    return horizontal ? bounds.right - offset > 0 && bounds.left + offset < _win5.innerWidth : bounds.bottom - offset > 0 && bounds.top + offset < _win5.innerHeight;
   };
   ScrollTrigger3.positionInViewport = function positionInViewport(element, referencePoint, horizontal) {
-    _isString3(element) && (element = _getTarget(element));
+    _isString5(element) && (element = _getTarget(element));
     var bounds = element.getBoundingClientRect(), size = bounds[horizontal ? _width : _height], offset = referencePoint == null ? size / 2 : referencePoint in _keywords ? _keywords[referencePoint] * size : ~referencePoint.indexOf("%") ? parseFloat(referencePoint) * size / 100 : parseFloat(referencePoint) || 0;
-    return horizontal ? (bounds.left + offset) / _win4.innerWidth : (bounds.top + offset) / _win4.innerHeight;
+    return horizontal ? (bounds.left + offset) / _win5.innerWidth : (bounds.top + offset) / _win5.innerHeight;
   };
   ScrollTrigger3.killAll = function killAll(allowListeners) {
     _triggers.slice(0).forEach(function(t) {
@@ -6293,11 +7560,11 @@ var ScrollTrigger2 = /* @__PURE__ */ function() {
 }();
 ScrollTrigger2.version = "3.12.7";
 ScrollTrigger2.saveStyles = function(targets) {
-  return targets ? _toArray(targets).forEach(function(target) {
+  return targets ? _toArray2(targets).forEach(function(target) {
     if (target && target.style) {
       var i = _savedStyles.indexOf(target);
       i >= 0 && _savedStyles.splice(i, 5);
-      _savedStyles.push(target, target.style.cssText, target.getBBox && target.getAttribute("transform"), gsap3.core.getCache(target), _context3());
+      _savedStyles.push(target, target.style.cssText, target.getBBox && target.getAttribute("transform"), gsap4.core.getCache(target), _context3());
     }
   }) : _savedStyles;
 };
@@ -6342,7 +7609,7 @@ ScrollTrigger2.removeEventListener = function(type, callback) {
 };
 ScrollTrigger2.batch = function(targets, vars) {
   var result = [], varsCopy = {}, interval = vars.interval || 0.016, batchMax = vars.batchMax || 1e9, proxyCallback = function proxyCallback2(type, callback) {
-    var elements = [], triggers = [], delay = gsap3.delayedCall(interval, function() {
+    var elements = [], triggers = [], delay = gsap4.delayedCall(interval, function() {
       callback(elements, triggers);
       elements = [];
       triggers = [];
@@ -6363,7 +7630,7 @@ ScrollTrigger2.batch = function(targets, vars) {
       return batchMax = vars.batchMax();
     });
   }
-  _toArray(targets).forEach(function(target) {
+  _toArray2(targets).forEach(function(target) {
     var config3 = {};
     for (p in varsCopy) {
       config3[p] = varsCopy[p];
@@ -6383,7 +7650,7 @@ var _allowNativePanning = function _allowNativePanning2(target, direction) {
   } else {
     target.style.touchAction = direction === true ? "auto" : direction ? "pan-" + direction + (Observer.isTouch ? " pinch-zoom" : "") : "none";
   }
-  target === _docEl2 && _allowNativePanning2(_body2, direction);
+  target === _docEl2 && _allowNativePanning2(_body3, direction);
 };
 var _overflow = {
   auto: 1,
@@ -6391,9 +7658,9 @@ var _overflow = {
 };
 var _nestedScroll = function _nestedScroll2(_ref5) {
   var event = _ref5.event, target = _ref5.target, axis = _ref5.axis;
-  var node = (event.changedTouches ? event.changedTouches[0] : event).target, cache = node._gsap || gsap3.core.getCache(node), time = _getTime2(), cs;
+  var node = (event.changedTouches ? event.changedTouches[0] : event).target, cache = node._gsap || gsap4.core.getCache(node), time = _getTime2(), cs;
   if (!cache._isScrollT || time - cache._isScrollT > 2e3) {
-    while (node && node !== _body2 && (node.scrollHeight <= node.clientHeight && node.scrollWidth <= node.clientWidth || !(_overflow[(cs = _getComputedStyle(node)).overflowY] || _overflow[cs.overflowX]))) {
+    while (node && node !== _body3 && (node.scrollHeight <= node.clientHeight && node.scrollWidth <= node.clientWidth || !(_overflow[(cs = _getComputedStyle(node)).overflowY] || _overflow[cs.overflowX]))) {
       node = node.parentNode;
     }
     cache._isScroll = node && node !== target && !_isViewport3(node) && (_overflow[(cs = _getComputedStyle(node)).overflowY] || _overflow[cs.overflowX]);
@@ -6416,10 +7683,10 @@ var _inputObserver = function _inputObserver2(target, type, inputs, nested) {
     onDrag: nested,
     onScroll: nested,
     onEnable: function onEnable() {
-      return inputs && _addListener3(_doc4, Observer.eventTypes[0], _captureInputs, false, true);
+      return inputs && _addListener3(_doc5, Observer.eventTypes[0], _captureInputs, false, true);
     },
     onDisable: function onDisable() {
-      return _removeListener3(_doc4, Observer.eventTypes[0], _captureInputs, true);
+      return _removeListener3(_doc5, Observer.eventTypes[0], _captureInputs, true);
     }
   });
 };
@@ -6438,7 +7705,7 @@ var _getScrollNormalizer = function _getScrollNormalizer2(vars) {
   vars.type || (vars.type = "wheel,touch");
   vars.debounce = !!vars.debounce;
   vars.id = vars.id || "normalizer";
-  var _vars2 = vars, normalizeScrollX = _vars2.normalizeScrollX, momentum = _vars2.momentum, allowNestedScroll = _vars2.allowNestedScroll, onRelease = _vars2.onRelease, self, maxY, target = _getTarget(vars.target) || _docEl2, smoother = gsap3.core.globals().ScrollSmoother, smootherInstance = smoother && smoother.get(), content = _fixIOSBug && (vars.content && _getTarget(vars.content) || smootherInstance && vars.content !== false && !smootherInstance.smooth() && smootherInstance.content()), scrollFuncY = _getScrollFunc(target, _vertical), scrollFuncX = _getScrollFunc(target, _horizontal), scale = 1, initialScale = (Observer.isTouch && _win4.visualViewport ? _win4.visualViewport.scale * _win4.visualViewport.width : _win4.outerWidth) / _win4.innerWidth, wheelRefresh = 0, resolveMomentumDuration = _isFunction3(momentum) ? function() {
+  var _vars2 = vars, normalizeScrollX = _vars2.normalizeScrollX, momentum = _vars2.momentum, allowNestedScroll = _vars2.allowNestedScroll, onRelease = _vars2.onRelease, self, maxY, target = _getTarget(vars.target) || _docEl2, smoother = gsap4.core.globals().ScrollSmoother, smootherInstance = smoother && smoother.get(), content = _fixIOSBug && (vars.content && _getTarget(vars.content) || smootherInstance && vars.content !== false && !smootherInstance.smooth() && smootherInstance.content()), scrollFuncY = _getScrollFunc(target, _vertical), scrollFuncX = _getScrollFunc(target, _horizontal), scale = 1, initialScale = (Observer.isTouch && _win5.visualViewport ? _win5.visualViewport.scale * _win5.visualViewport.width : _win5.outerWidth) / _win5.innerWidth, wheelRefresh = 0, resolveMomentumDuration = _isFunction3(momentum) ? function() {
     return momentum(self);
   } : function() {
     return momentum || 2.8;
@@ -6450,16 +7717,16 @@ var _getScrollNormalizer = function _getScrollNormalizer2(vars) {
     normalizeScrollX && (scrollClampX = _clamp4(0, _maxScroll(target, _horizontal)));
     lastRefreshID = _refreshID;
   }, removeContentOffset = function removeContentOffset2() {
-    content._gsap.y = _round3(parseFloat(content._gsap.y) + scrollFuncY.offset) + "px";
+    content._gsap.y = _round5(parseFloat(content._gsap.y) + scrollFuncY.offset) + "px";
     content.style.transform = "matrix3d(1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, " + parseFloat(content._gsap.y) + ", 0, 1)";
     scrollFuncY.offset = scrollFuncY.cacheID = 0;
   }, ignoreDrag = function ignoreDrag2() {
     if (skipTouchMove) {
       requestAnimationFrame(resumeTouchMove);
-      var offset = _round3(self.deltaY / 2), scroll = scrollClampY(scrollFuncY.v - offset);
+      var offset = _round5(self.deltaY / 2), scroll = scrollClampY(scrollFuncY.v - offset);
       if (content && scroll !== scrollFuncY.v + scrollFuncY.offset) {
         scrollFuncY.offset = scroll - scrollFuncY.v;
-        var y = _round3((parseFloat(content && content._gsap.y) || 0) - scrollFuncY.offset);
+        var y = _round5((parseFloat(content && content._gsap.y) || 0) - scrollFuncY.offset);
         content.style.transform = "matrix3d(1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, " + y + ", 0, 1)";
         content._gsap.y = y + "px";
         scrollFuncY.cacheID = _scrollers.cache;
@@ -6475,7 +7742,7 @@ var _getScrollNormalizer = function _getScrollNormalizer2(vars) {
       scrollFuncY() > maxY ? tween.progress(1) && scrollFuncY(maxY) : tween.resetTo("scrollY", maxY);
     }
   };
-  content && gsap3.set(content, {
+  content && gsap4.set(content, {
     y: "+=0"
   });
   vars.ignoreCheck = function(e) {
@@ -6484,7 +7751,7 @@ var _getScrollNormalizer = function _getScrollNormalizer2(vars) {
   vars.onPress = function() {
     skipTouchMove = false;
     var prevScale = scale;
-    scale = _round3((_win4.visualViewport && _win4.visualViewport.scale || 1) / initialScale);
+    scale = _round5((_win5.visualViewport && _win5.visualViewport.scale || 1) / initialScale);
     tween.pause();
     prevScale !== scale && _allowNativePanning(target, scale > 1.01 ? true : normalizeScrollX ? false : "x");
     startScrollX = scrollFuncX();
@@ -6511,7 +7778,7 @@ var _getScrollNormalizer = function _getScrollNormalizer2(vars) {
       tween.vars.scrollY = scrollClampY(endScroll);
       tween.invalidate().duration(dur).play(0.01);
       if (_fixIOSBug && tween.vars.scrollY >= maxY || currentScroll >= maxY - 1) {
-        gsap3.to({}, {
+        gsap4.to({}, {
           onUpdate: onResize,
           duration: dur
         });
@@ -6540,7 +7807,7 @@ var _getScrollNormalizer = function _getScrollNormalizer2(vars) {
   vars.onEnable = function() {
     _allowNativePanning(target, normalizeScrollX ? false : "x");
     ScrollTrigger2.addEventListener("refresh", onResize);
-    _addListener3(_win4, "resize", onResize);
+    _addListener3(_win5, "resize", onResize);
     if (scrollFuncY.smooth) {
       scrollFuncY.target.style.scrollBehavior = "auto";
       scrollFuncY.smooth = scrollFuncX.smooth = false;
@@ -6549,7 +7816,7 @@ var _getScrollNormalizer = function _getScrollNormalizer2(vars) {
   };
   vars.onDisable = function() {
     _allowNativePanning(target, true);
-    _removeListener3(_win4, "resize", onResize);
+    _removeListener3(_win5, "resize", onResize);
     ScrollTrigger2.removeEventListener("refresh", onResize);
     inputObserver.kill();
   };
@@ -6557,9 +7824,9 @@ var _getScrollNormalizer = function _getScrollNormalizer2(vars) {
   self = new Observer(vars);
   self.iOS = _fixIOSBug;
   _fixIOSBug && !scrollFuncY() && scrollFuncY(1);
-  _fixIOSBug && gsap3.ticker.add(_passThrough3);
+  _fixIOSBug && gsap4.ticker.add(_passThrough3);
   onStopDelayedCall = self._dc;
-  tween = gsap3.to(self, {
+  tween = gsap4.to(self, {
     ease: "power4",
     paused: true,
     inherit: false,
@@ -6579,9 +7846,9 @@ ScrollTrigger2.sort = function(func) {
   if (_isFunction3(func)) {
     return _triggers.sort(func);
   }
-  var scroll = _win4.pageYOffset || 0;
+  var scroll = _win5.pageYOffset || 0;
   ScrollTrigger2.getAll().forEach(function(t) {
-    return t._sortY = t.trigger ? scroll + t.trigger.getBoundingClientRect().top : t.start + _win4.innerHeight;
+    return t._sortY = t.trigger ? scroll + t.trigger.getBoundingClientRect().top : t.start + _win5.innerHeight;
   });
   return _triggers.sort(func || function(a, b) {
     return (a.vars.refreshPriority || 0) * -1e6 + (a.vars.containerAnimation ? 1e6 : a._sortY) - ((b.vars.containerAnimation ? 1e6 : b._sortY) + (b.vars.refreshPriority || 0) * -1e6);
@@ -6625,1274 +7892,7 @@ ScrollTrigger2.core = {
     }
   }
 };
-_getGSAP3() && gsap3.registerPlugin(ScrollTrigger2);
-
-// node_modules/gsap/utils/paths.js
-var _svgPathExp = /[achlmqstvz]|(-?\d*\.?\d*(?:e[\-+]?\d+)?)[0-9]/ig;
-var _numbersExp = /(?:(-)?\d*\.?\d*(?:e[\-+]?\d+)?)[0-9]/ig;
-var _scientific = /[\+\-]?\d*\.?\d+e[\+\-]?\d+/ig;
-var _selectorExp = /(^[#\.][a-z]|[a-y][a-z])/i;
-var _DEG2RAD2 = Math.PI / 180;
-var _RAD2DEG2 = 180 / Math.PI;
-var _sin2 = Math.sin;
-var _cos2 = Math.cos;
-var _abs2 = Math.abs;
-var _sqrt2 = Math.sqrt;
-var _atan22 = Math.atan2;
-var _largeNum = 1e8;
-var _isString5 = function _isString6(value) {
-  return typeof value === "string";
-};
-var _isNumber5 = function _isNumber6(value) {
-  return typeof value === "number";
-};
-var _isUndefined3 = function _isUndefined4(value) {
-  return typeof value === "undefined";
-};
-var _temp = {};
-var _temp2 = {};
-var _roundingNum = 1e5;
-var _wrapProgress = function _wrapProgress2(progress) {
-  return Math.round((progress + _largeNum) % 1 * _roundingNum) / _roundingNum || (progress < 0 ? 0 : 1);
-};
-var _round5 = function _round6(value) {
-  return Math.round(value * _roundingNum) / _roundingNum || 0;
-};
-var _roundPrecise3 = function _roundPrecise4(value) {
-  return Math.round(value * 1e10) / 1e10 || 0;
-};
-var _splitSegment = function _splitSegment2(rawPath, segIndex, i, t) {
-  var segment = rawPath[segIndex], shift = t === 1 ? 6 : subdivideSegment(segment, i, t);
-  if ((shift || !t) && shift + i + 2 < segment.length) {
-    rawPath.splice(segIndex, 0, segment.slice(0, i + shift + 2));
-    segment.splice(0, i + shift);
-    return 1;
-  }
-};
-var _getSampleIndex = function _getSampleIndex2(samples, length, progress) {
-  var l = samples.length, i = ~~(progress * l);
-  if (samples[i] > length) {
-    while (--i && samples[i] > length) {
-    }
-    i < 0 && (i = 0);
-  } else {
-    while (samples[++i] < length && i < l) {
-    }
-  }
-  return i < l ? i : l - 1;
-};
-var _reverseRawPath = function _reverseRawPath2(rawPath, skipOuter) {
-  var i = rawPath.length;
-  skipOuter || rawPath.reverse();
-  while (i--) {
-    rawPath[i].reversed || reverseSegment(rawPath[i]);
-  }
-};
-var _copyMetaData = function _copyMetaData2(source, copy) {
-  copy.totalLength = source.totalLength;
-  if (source.samples) {
-    copy.samples = source.samples.slice(0);
-    copy.lookup = source.lookup.slice(0);
-    copy.minLength = source.minLength;
-    copy.resolution = source.resolution;
-  } else if (source.totalPoints) {
-    copy.totalPoints = source.totalPoints;
-  }
-  return copy;
-};
-var _appendOrMerge = function _appendOrMerge2(rawPath, segment) {
-  var index = rawPath.length, prevSeg = rawPath[index - 1] || [], l = prevSeg.length;
-  if (index && segment[0] === prevSeg[l - 2] && segment[1] === prevSeg[l - 1]) {
-    segment = prevSeg.concat(segment.slice(2));
-    index--;
-  }
-  rawPath[index] = segment;
-};
-function getRawPath(value) {
-  value = _isString5(value) && _selectorExp.test(value) ? document.querySelector(value) || value : value;
-  var e = value.getAttribute ? value : 0, rawPath;
-  if (e && (value = value.getAttribute("d"))) {
-    if (!e._gsPath) {
-      e._gsPath = {};
-    }
-    rawPath = e._gsPath[value];
-    return rawPath && !rawPath._dirty ? rawPath : e._gsPath[value] = stringToRawPath(value);
-  }
-  return !value ? console.warn("Expecting a <path> element or an SVG path data string") : _isString5(value) ? stringToRawPath(value) : _isNumber5(value[0]) ? [value] : value;
-}
-function copyRawPath(rawPath) {
-  var a = [], i = 0;
-  for (; i < rawPath.length; i++) {
-    a[i] = _copyMetaData(rawPath[i], rawPath[i].slice(0));
-  }
-  return _copyMetaData(rawPath, a);
-}
-function reverseSegment(segment) {
-  var i = 0, y;
-  segment.reverse();
-  for (; i < segment.length; i += 2) {
-    y = segment[i];
-    segment[i] = segment[i + 1];
-    segment[i + 1] = y;
-  }
-  segment.reversed = !segment.reversed;
-}
-var _createPath = function _createPath2(e, ignore) {
-  var path = document.createElementNS("http://www.w3.org/2000/svg", "path"), attr = [].slice.call(e.attributes), i = attr.length, name;
-  ignore = "," + ignore + ",";
-  while (--i > -1) {
-    name = attr[i].nodeName.toLowerCase();
-    if (ignore.indexOf("," + name + ",") < 0) {
-      path.setAttributeNS(null, name, attr[i].nodeValue);
-    }
-  }
-  return path;
-};
-var _typeAttrs = {
-  rect: "rx,ry,x,y,width,height",
-  circle: "r,cx,cy",
-  ellipse: "rx,ry,cx,cy",
-  line: "x1,x2,y1,y2"
-};
-var _attrToObj = function _attrToObj2(e, attrs) {
-  var props = attrs ? attrs.split(",") : [], obj = {}, i = props.length;
-  while (--i > -1) {
-    obj[props[i]] = +e.getAttribute(props[i]) || 0;
-  }
-  return obj;
-};
-function convertToPath(element, swap) {
-  var type = element.tagName.toLowerCase(), circ = 0.552284749831, data, x, y, r, ry, path, rcirc, rycirc, points, w, h, x2, x3, x4, x5, x6, y2, y3, y4, y5, y6, attr;
-  if (type === "path" || !element.getBBox) {
-    return element;
-  }
-  path = _createPath(element, "x,y,width,height,cx,cy,rx,ry,r,x1,x2,y1,y2,points");
-  attr = _attrToObj(element, _typeAttrs[type]);
-  if (type === "rect") {
-    r = attr.rx;
-    ry = attr.ry || r;
-    x = attr.x;
-    y = attr.y;
-    w = attr.width - r * 2;
-    h = attr.height - ry * 2;
-    if (r || ry) {
-      x2 = x + r * (1 - circ);
-      x3 = x + r;
-      x4 = x3 + w;
-      x5 = x4 + r * circ;
-      x6 = x4 + r;
-      y2 = y + ry * (1 - circ);
-      y3 = y + ry;
-      y4 = y3 + h;
-      y5 = y4 + ry * circ;
-      y6 = y4 + ry;
-      data = "M" + x6 + "," + y3 + " V" + y4 + " C" + [x6, y5, x5, y6, x4, y6, x4 - (x4 - x3) / 3, y6, x3 + (x4 - x3) / 3, y6, x3, y6, x2, y6, x, y5, x, y4, x, y4 - (y4 - y3) / 3, x, y3 + (y4 - y3) / 3, x, y3, x, y2, x2, y, x3, y, x3 + (x4 - x3) / 3, y, x4 - (x4 - x3) / 3, y, x4, y, x5, y, x6, y2, x6, y3].join(",") + "z";
-    } else {
-      data = "M" + (x + w) + "," + y + " v" + h + " h" + -w + " v" + -h + " h" + w + "z";
-    }
-  } else if (type === "circle" || type === "ellipse") {
-    if (type === "circle") {
-      r = ry = attr.r;
-      rycirc = r * circ;
-    } else {
-      r = attr.rx;
-      ry = attr.ry;
-      rycirc = ry * circ;
-    }
-    x = attr.cx;
-    y = attr.cy;
-    rcirc = r * circ;
-    data = "M" + (x + r) + "," + y + " C" + [x + r, y + rycirc, x + rcirc, y + ry, x, y + ry, x - rcirc, y + ry, x - r, y + rycirc, x - r, y, x - r, y - rycirc, x - rcirc, y - ry, x, y - ry, x + rcirc, y - ry, x + r, y - rycirc, x + r, y].join(",") + "z";
-  } else if (type === "line") {
-    data = "M" + attr.x1 + "," + attr.y1 + " L" + attr.x2 + "," + attr.y2;
-  } else if (type === "polyline" || type === "polygon") {
-    points = (element.getAttribute("points") + "").match(_numbersExp) || [];
-    x = points.shift();
-    y = points.shift();
-    data = "M" + x + "," + y + " L" + points.join(",");
-    if (type === "polygon") {
-      data += "," + x + "," + y + "z";
-    }
-  }
-  path.setAttribute("d", rawPathToString(path._gsRawPath = stringToRawPath(data)));
-  if (swap && element.parentNode) {
-    element.parentNode.insertBefore(path, element);
-    element.parentNode.removeChild(element);
-  }
-  return path;
-}
-function getRotationAtBezierT(segment, i, t) {
-  var a = segment[i], b = segment[i + 2], c = segment[i + 4], x;
-  a += (b - a) * t;
-  b += (c - b) * t;
-  a += (b - a) * t;
-  x = b + (c + (segment[i + 6] - c) * t - b) * t - a;
-  a = segment[i + 1];
-  b = segment[i + 3];
-  c = segment[i + 5];
-  a += (b - a) * t;
-  b += (c - b) * t;
-  a += (b - a) * t;
-  return _round5(_atan22(b + (c + (segment[i + 7] - c) * t - b) * t - a, x) * _RAD2DEG2);
-}
-function sliceRawPath(rawPath, start, end) {
-  end = _isUndefined3(end) ? 1 : _roundPrecise3(end) || 0;
-  start = _roundPrecise3(start) || 0;
-  var loops = Math.max(0, ~~(_abs2(end - start) - 1e-8)), path = copyRawPath(rawPath);
-  if (start > end) {
-    start = 1 - start;
-    end = 1 - end;
-    _reverseRawPath(path);
-    path.totalLength = 0;
-  }
-  if (start < 0 || end < 0) {
-    var offset = Math.abs(~~Math.min(start, end)) + 1;
-    start += offset;
-    end += offset;
-  }
-  path.totalLength || cacheRawPathMeasurements(path);
-  var wrap3 = end > 1, s = getProgressData(path, start, _temp, true), e = getProgressData(path, end, _temp2), eSeg = e.segment, sSeg = s.segment, eSegIndex = e.segIndex, sSegIndex = s.segIndex, ei = e.i, si = s.i, sameSegment = sSegIndex === eSegIndex, sameBezier = ei === si && sameSegment, wrapsBehind, sShift, eShift, i, copy, totalSegments, l, j;
-  if (wrap3 || loops) {
-    wrapsBehind = eSegIndex < sSegIndex || sameSegment && ei < si || sameBezier && e.t < s.t;
-    if (_splitSegment(path, sSegIndex, si, s.t)) {
-      sSegIndex++;
-      if (!wrapsBehind) {
-        eSegIndex++;
-        if (sameBezier) {
-          e.t = (e.t - s.t) / (1 - s.t);
-          ei = 0;
-        } else if (sameSegment) {
-          ei -= si;
-        }
-      }
-    }
-    if (Math.abs(1 - (end - start)) < 1e-5) {
-      eSegIndex = sSegIndex - 1;
-    } else if (!e.t && eSegIndex) {
-      eSegIndex--;
-    } else if (_splitSegment(path, eSegIndex, ei, e.t) && wrapsBehind) {
-      sSegIndex++;
-    }
-    if (s.t === 1) {
-      sSegIndex = (sSegIndex + 1) % path.length;
-    }
-    copy = [];
-    totalSegments = path.length;
-    l = 1 + totalSegments * loops;
-    j = sSegIndex;
-    l += (totalSegments - sSegIndex + eSegIndex) % totalSegments;
-    for (i = 0; i < l; i++) {
-      _appendOrMerge(copy, path[j++ % totalSegments]);
-    }
-    path = copy;
-  } else {
-    eShift = e.t === 1 ? 6 : subdivideSegment(eSeg, ei, e.t);
-    if (start !== end) {
-      sShift = subdivideSegment(sSeg, si, sameBezier ? s.t / e.t : s.t);
-      sameSegment && (eShift += sShift);
-      eSeg.splice(ei + eShift + 2);
-      (sShift || si) && sSeg.splice(0, si + sShift);
-      i = path.length;
-      while (i--) {
-        (i < sSegIndex || i > eSegIndex) && path.splice(i, 1);
-      }
-    } else {
-      eSeg.angle = getRotationAtBezierT(eSeg, ei + eShift, 0);
-      ei += eShift;
-      s = eSeg[ei];
-      e = eSeg[ei + 1];
-      eSeg.length = eSeg.totalLength = 0;
-      eSeg.totalPoints = path.totalPoints = 8;
-      eSeg.push(s, e, s, e, s, e, s, e);
-    }
-  }
-  path.totalLength = 0;
-  return path;
-}
-function measureSegment(segment, startIndex, bezierQty) {
-  startIndex = startIndex || 0;
-  if (!segment.samples) {
-    segment.samples = [];
-    segment.lookup = [];
-  }
-  var resolution = ~~segment.resolution || 12, inc = 1 / resolution, endIndex = bezierQty ? startIndex + bezierQty * 6 + 1 : segment.length, x1 = segment[startIndex], y1 = segment[startIndex + 1], samplesIndex = startIndex ? startIndex / 6 * resolution : 0, samples = segment.samples, lookup = segment.lookup, min = (startIndex ? segment.minLength : _largeNum) || _largeNum, prevLength = samples[samplesIndex + bezierQty * resolution - 1], length = startIndex ? samples[samplesIndex - 1] : 0, i, j, x4, x3, x2, xd, xd1, y4, y3, y2, yd, yd1, inv, t, lengthIndex, l, segLength;
-  samples.length = lookup.length = 0;
-  for (j = startIndex + 2; j < endIndex; j += 6) {
-    x4 = segment[j + 4] - x1;
-    x3 = segment[j + 2] - x1;
-    x2 = segment[j] - x1;
-    y4 = segment[j + 5] - y1;
-    y3 = segment[j + 3] - y1;
-    y2 = segment[j + 1] - y1;
-    xd = xd1 = yd = yd1 = 0;
-    if (_abs2(x4) < 0.01 && _abs2(y4) < 0.01 && _abs2(x2) + _abs2(y2) < 0.01) {
-      if (segment.length > 8) {
-        segment.splice(j, 6);
-        j -= 6;
-        endIndex -= 6;
-      }
-    } else {
-      for (i = 1; i <= resolution; i++) {
-        t = inc * i;
-        inv = 1 - t;
-        xd = xd1 - (xd1 = (t * t * x4 + 3 * inv * (t * x3 + inv * x2)) * t);
-        yd = yd1 - (yd1 = (t * t * y4 + 3 * inv * (t * y3 + inv * y2)) * t);
-        l = _sqrt2(yd * yd + xd * xd);
-        if (l < min) {
-          min = l;
-        }
-        length += l;
-        samples[samplesIndex++] = length;
-      }
-    }
-    x1 += x4;
-    y1 += y4;
-  }
-  if (prevLength) {
-    prevLength -= length;
-    for (; samplesIndex < samples.length; samplesIndex++) {
-      samples[samplesIndex] += prevLength;
-    }
-  }
-  if (samples.length && min) {
-    segment.totalLength = segLength = samples[samples.length - 1] || 0;
-    segment.minLength = min;
-    if (segLength / min < 9999) {
-      l = lengthIndex = 0;
-      for (i = 0; i < segLength; i += min) {
-        lookup[l++] = samples[lengthIndex] < i ? ++lengthIndex : lengthIndex;
-      }
-    }
-  } else {
-    segment.totalLength = samples[0] = 0;
-  }
-  return startIndex ? length - samples[startIndex / 2 - 1] : length;
-}
-function cacheRawPathMeasurements(rawPath, resolution) {
-  var pathLength, points, i;
-  for (i = pathLength = points = 0; i < rawPath.length; i++) {
-    rawPath[i].resolution = ~~resolution || 12;
-    points += rawPath[i].length;
-    pathLength += measureSegment(rawPath[i]);
-  }
-  rawPath.totalPoints = points;
-  rawPath.totalLength = pathLength;
-  return rawPath;
-}
-function subdivideSegment(segment, i, t) {
-  if (t <= 0 || t >= 1) {
-    return 0;
-  }
-  var ax = segment[i], ay = segment[i + 1], cp1x = segment[i + 2], cp1y = segment[i + 3], cp2x = segment[i + 4], cp2y = segment[i + 5], bx = segment[i + 6], by = segment[i + 7], x1a = ax + (cp1x - ax) * t, x2 = cp1x + (cp2x - cp1x) * t, y1a = ay + (cp1y - ay) * t, y2 = cp1y + (cp2y - cp1y) * t, x1 = x1a + (x2 - x1a) * t, y1 = y1a + (y2 - y1a) * t, x2a = cp2x + (bx - cp2x) * t, y2a = cp2y + (by - cp2y) * t;
-  x2 += (x2a - x2) * t;
-  y2 += (y2a - y2) * t;
-  segment.splice(
-    i + 2,
-    4,
-    _round5(x1a),
-    //first control point
-    _round5(y1a),
-    _round5(x1),
-    //second control point
-    _round5(y1),
-    _round5(x1 + (x2 - x1) * t),
-    //new fabricated anchor on line
-    _round5(y1 + (y2 - y1) * t),
-    _round5(x2),
-    //third control point
-    _round5(y2),
-    _round5(x2a),
-    //fourth control point
-    _round5(y2a)
-  );
-  segment.samples && segment.samples.splice(i / 6 * segment.resolution | 0, 0, 0, 0, 0, 0, 0, 0);
-  return 6;
-}
-function getProgressData(rawPath, progress, decoratee, pushToNextIfAtEnd) {
-  decoratee = decoratee || {};
-  rawPath.totalLength || cacheRawPathMeasurements(rawPath);
-  if (progress < 0 || progress > 1) {
-    progress = _wrapProgress(progress);
-  }
-  var segIndex = 0, segment = rawPath[0], samples, resolution, length, min, max, i, t;
-  if (!progress) {
-    t = i = segIndex = 0;
-    segment = rawPath[0];
-  } else if (progress === 1) {
-    t = 1;
-    segIndex = rawPath.length - 1;
-    segment = rawPath[segIndex];
-    i = segment.length - 8;
-  } else {
-    if (rawPath.length > 1) {
-      length = rawPath.totalLength * progress;
-      max = i = 0;
-      while ((max += rawPath[i++].totalLength) < length) {
-        segIndex = i;
-      }
-      segment = rawPath[segIndex];
-      min = max - segment.totalLength;
-      progress = (length - min) / (max - min) || 0;
-    }
-    samples = segment.samples;
-    resolution = segment.resolution;
-    length = segment.totalLength * progress;
-    i = segment.lookup.length ? segment.lookup[~~(length / segment.minLength)] || 0 : _getSampleIndex(samples, length, progress);
-    min = i ? samples[i - 1] : 0;
-    max = samples[i];
-    if (max < length) {
-      min = max;
-      max = samples[++i];
-    }
-    t = 1 / resolution * ((length - min) / (max - min) + i % resolution);
-    i = ~~(i / resolution) * 6;
-    if (pushToNextIfAtEnd && t === 1) {
-      if (i + 6 < segment.length) {
-        i += 6;
-        t = 0;
-      } else if (segIndex + 1 < rawPath.length) {
-        i = t = 0;
-        segment = rawPath[++segIndex];
-      }
-    }
-  }
-  decoratee.t = t;
-  decoratee.i = i;
-  decoratee.path = rawPath;
-  decoratee.segment = segment;
-  decoratee.segIndex = segIndex;
-  return decoratee;
-}
-function getPositionOnPath(rawPath, progress, includeAngle, point) {
-  var segment = rawPath[0], result = point || {}, samples, resolution, length, min, max, i, t, a, inv;
-  if (progress < 0 || progress > 1) {
-    progress = _wrapProgress(progress);
-  }
-  segment.lookup || cacheRawPathMeasurements(rawPath);
-  if (rawPath.length > 1) {
-    length = rawPath.totalLength * progress;
-    max = i = 0;
-    while ((max += rawPath[i++].totalLength) < length) {
-      segment = rawPath[i];
-    }
-    min = max - segment.totalLength;
-    progress = (length - min) / (max - min) || 0;
-  }
-  samples = segment.samples;
-  resolution = segment.resolution;
-  length = segment.totalLength * progress;
-  i = segment.lookup.length ? segment.lookup[progress < 1 ? ~~(length / segment.minLength) : segment.lookup.length - 1] || 0 : _getSampleIndex(samples, length, progress);
-  min = i ? samples[i - 1] : 0;
-  max = samples[i];
-  if (max < length) {
-    min = max;
-    max = samples[++i];
-  }
-  t = 1 / resolution * ((length - min) / (max - min) + i % resolution) || 0;
-  inv = 1 - t;
-  i = ~~(i / resolution) * 6;
-  a = segment[i];
-  result.x = _round5((t * t * (segment[i + 6] - a) + 3 * inv * (t * (segment[i + 4] - a) + inv * (segment[i + 2] - a))) * t + a);
-  result.y = _round5((t * t * (segment[i + 7] - (a = segment[i + 1])) + 3 * inv * (t * (segment[i + 5] - a) + inv * (segment[i + 3] - a))) * t + a);
-  if (includeAngle) {
-    result.angle = segment.totalLength ? getRotationAtBezierT(segment, i, t >= 1 ? 1 - 1e-9 : t ? t : 1e-9) : segment.angle || 0;
-  }
-  return result;
-}
-function transformRawPath(rawPath, a, b, c, d, tx, ty) {
-  var j = rawPath.length, segment, l, i, x, y;
-  while (--j > -1) {
-    segment = rawPath[j];
-    l = segment.length;
-    for (i = 0; i < l; i += 2) {
-      x = segment[i];
-      y = segment[i + 1];
-      segment[i] = x * a + y * c + tx;
-      segment[i + 1] = x * b + y * d + ty;
-    }
-  }
-  rawPath._dirty = 1;
-  return rawPath;
-}
-function arcToSegment(lastX, lastY, rx, ry, angle, largeArcFlag, sweepFlag, x, y) {
-  if (lastX === x && lastY === y) {
-    return;
-  }
-  rx = _abs2(rx);
-  ry = _abs2(ry);
-  var angleRad = angle % 360 * _DEG2RAD2, cosAngle = _cos2(angleRad), sinAngle = _sin2(angleRad), PI = Math.PI, TWOPI = PI * 2, dx2 = (lastX - x) / 2, dy2 = (lastY - y) / 2, x1 = cosAngle * dx2 + sinAngle * dy2, y1 = -sinAngle * dx2 + cosAngle * dy2, x1_sq = x1 * x1, y1_sq = y1 * y1, radiiCheck = x1_sq / (rx * rx) + y1_sq / (ry * ry);
-  if (radiiCheck > 1) {
-    rx = _sqrt2(radiiCheck) * rx;
-    ry = _sqrt2(radiiCheck) * ry;
-  }
-  var rx_sq = rx * rx, ry_sq = ry * ry, sq = (rx_sq * ry_sq - rx_sq * y1_sq - ry_sq * x1_sq) / (rx_sq * y1_sq + ry_sq * x1_sq);
-  if (sq < 0) {
-    sq = 0;
-  }
-  var coef = (largeArcFlag === sweepFlag ? -1 : 1) * _sqrt2(sq), cx1 = coef * (rx * y1 / ry), cy1 = coef * -(ry * x1 / rx), sx2 = (lastX + x) / 2, sy2 = (lastY + y) / 2, cx = sx2 + (cosAngle * cx1 - sinAngle * cy1), cy = sy2 + (sinAngle * cx1 + cosAngle * cy1), ux = (x1 - cx1) / rx, uy = (y1 - cy1) / ry, vx = (-x1 - cx1) / rx, vy = (-y1 - cy1) / ry, temp = ux * ux + uy * uy, angleStart = (uy < 0 ? -1 : 1) * Math.acos(ux / _sqrt2(temp)), angleExtent = (ux * vy - uy * vx < 0 ? -1 : 1) * Math.acos((ux * vx + uy * vy) / _sqrt2(temp * (vx * vx + vy * vy)));
-  isNaN(angleExtent) && (angleExtent = PI);
-  if (!sweepFlag && angleExtent > 0) {
-    angleExtent -= TWOPI;
-  } else if (sweepFlag && angleExtent < 0) {
-    angleExtent += TWOPI;
-  }
-  angleStart %= TWOPI;
-  angleExtent %= TWOPI;
-  var segments = Math.ceil(_abs2(angleExtent) / (TWOPI / 4)), rawPath = [], angleIncrement = angleExtent / segments, controlLength = 4 / 3 * _sin2(angleIncrement / 2) / (1 + _cos2(angleIncrement / 2)), ma = cosAngle * rx, mb = sinAngle * rx, mc = sinAngle * -ry, md = cosAngle * ry, i;
-  for (i = 0; i < segments; i++) {
-    angle = angleStart + i * angleIncrement;
-    x1 = _cos2(angle);
-    y1 = _sin2(angle);
-    ux = _cos2(angle += angleIncrement);
-    uy = _sin2(angle);
-    rawPath.push(x1 - controlLength * y1, y1 + controlLength * x1, ux + controlLength * uy, uy - controlLength * ux, ux, uy);
-  }
-  for (i = 0; i < rawPath.length; i += 2) {
-    x1 = rawPath[i];
-    y1 = rawPath[i + 1];
-    rawPath[i] = x1 * ma + y1 * mc + cx;
-    rawPath[i + 1] = x1 * mb + y1 * md + cy;
-  }
-  rawPath[i - 2] = x;
-  rawPath[i - 1] = y;
-  return rawPath;
-}
-function stringToRawPath(d) {
-  var a = (d + "").replace(_scientific, function(m) {
-    var n = +m;
-    return n < 1e-4 && n > -1e-4 ? 0 : n;
-  }).match(_svgPathExp) || [], path = [], relativeX = 0, relativeY = 0, twoThirds = 2 / 3, elements = a.length, points = 0, errorMessage = "ERROR: malformed path: " + d, i, j, x, y, command, isRelative, segment, startX, startY, difX, difY, beziers, prevCommand, flag1, flag2, line = function line2(sx, sy, ex, ey) {
-    difX = (ex - sx) / 3;
-    difY = (ey - sy) / 3;
-    segment.push(sx + difX, sy + difY, ex - difX, ey - difY, ex, ey);
-  };
-  if (!d || !isNaN(a[0]) || isNaN(a[1])) {
-    console.log(errorMessage);
-    return path;
-  }
-  for (i = 0; i < elements; i++) {
-    prevCommand = command;
-    if (isNaN(a[i])) {
-      command = a[i].toUpperCase();
-      isRelative = command !== a[i];
-    } else {
-      i--;
-    }
-    x = +a[i + 1];
-    y = +a[i + 2];
-    if (isRelative) {
-      x += relativeX;
-      y += relativeY;
-    }
-    if (!i) {
-      startX = x;
-      startY = y;
-    }
-    if (command === "M") {
-      if (segment) {
-        if (segment.length < 8) {
-          path.length -= 1;
-        } else {
-          points += segment.length;
-        }
-      }
-      relativeX = startX = x;
-      relativeY = startY = y;
-      segment = [x, y];
-      path.push(segment);
-      i += 2;
-      command = "L";
-    } else if (command === "C") {
-      if (!segment) {
-        segment = [0, 0];
-      }
-      if (!isRelative) {
-        relativeX = relativeY = 0;
-      }
-      segment.push(x, y, relativeX + a[i + 3] * 1, relativeY + a[i + 4] * 1, relativeX += a[i + 5] * 1, relativeY += a[i + 6] * 1);
-      i += 6;
-    } else if (command === "S") {
-      difX = relativeX;
-      difY = relativeY;
-      if (prevCommand === "C" || prevCommand === "S") {
-        difX += relativeX - segment[segment.length - 4];
-        difY += relativeY - segment[segment.length - 3];
-      }
-      if (!isRelative) {
-        relativeX = relativeY = 0;
-      }
-      segment.push(difX, difY, x, y, relativeX += a[i + 3] * 1, relativeY += a[i + 4] * 1);
-      i += 4;
-    } else if (command === "Q") {
-      difX = relativeX + (x - relativeX) * twoThirds;
-      difY = relativeY + (y - relativeY) * twoThirds;
-      if (!isRelative) {
-        relativeX = relativeY = 0;
-      }
-      relativeX += a[i + 3] * 1;
-      relativeY += a[i + 4] * 1;
-      segment.push(difX, difY, relativeX + (x - relativeX) * twoThirds, relativeY + (y - relativeY) * twoThirds, relativeX, relativeY);
-      i += 4;
-    } else if (command === "T") {
-      difX = relativeX - segment[segment.length - 4];
-      difY = relativeY - segment[segment.length - 3];
-      segment.push(relativeX + difX, relativeY + difY, x + (relativeX + difX * 1.5 - x) * twoThirds, y + (relativeY + difY * 1.5 - y) * twoThirds, relativeX = x, relativeY = y);
-      i += 2;
-    } else if (command === "H") {
-      line(relativeX, relativeY, relativeX = x, relativeY);
-      i += 1;
-    } else if (command === "V") {
-      line(relativeX, relativeY, relativeX, relativeY = x + (isRelative ? relativeY - relativeX : 0));
-      i += 1;
-    } else if (command === "L" || command === "Z") {
-      if (command === "Z") {
-        x = startX;
-        y = startY;
-        segment.closed = true;
-      }
-      if (command === "L" || _abs2(relativeX - x) > 0.5 || _abs2(relativeY - y) > 0.5) {
-        line(relativeX, relativeY, x, y);
-        if (command === "L") {
-          i += 2;
-        }
-      }
-      relativeX = x;
-      relativeY = y;
-    } else if (command === "A") {
-      flag1 = a[i + 4];
-      flag2 = a[i + 5];
-      difX = a[i + 6];
-      difY = a[i + 7];
-      j = 7;
-      if (flag1.length > 1) {
-        if (flag1.length < 3) {
-          difY = difX;
-          difX = flag2;
-          j--;
-        } else {
-          difY = flag2;
-          difX = flag1.substr(2);
-          j -= 2;
-        }
-        flag2 = flag1.charAt(1);
-        flag1 = flag1.charAt(0);
-      }
-      beziers = arcToSegment(relativeX, relativeY, +a[i + 1], +a[i + 2], +a[i + 3], +flag1, +flag2, (isRelative ? relativeX : 0) + difX * 1, (isRelative ? relativeY : 0) + difY * 1);
-      i += j;
-      if (beziers) {
-        for (j = 0; j < beziers.length; j++) {
-          segment.push(beziers[j]);
-        }
-      }
-      relativeX = segment[segment.length - 2];
-      relativeY = segment[segment.length - 1];
-    } else {
-      console.log(errorMessage);
-    }
-  }
-  i = segment.length;
-  if (i < 6) {
-    path.pop();
-    i = 0;
-  } else if (segment[0] === segment[i - 2] && segment[1] === segment[i - 1]) {
-    segment.closed = true;
-  }
-  path.totalPoints = points + i;
-  return path;
-}
-function flatPointsToSegment(points, curviness) {
-  if (curviness === void 0) {
-    curviness = 1;
-  }
-  var x = points[0], y = 0, segment = [x, y], i = 2;
-  for (; i < points.length; i += 2) {
-    segment.push(x, y, points[i], y = (points[i] - x) * curviness / 2, x = points[i], -y);
-  }
-  return segment;
-}
-function pointsToSegment(points, curviness) {
-  _abs2(points[0] - points[2]) < 1e-4 && _abs2(points[1] - points[3]) < 1e-4 && (points = points.slice(2));
-  var l = points.length - 2, x = +points[0], y = +points[1], nextX = +points[2], nextY = +points[3], segment = [x, y, x, y], dx2 = nextX - x, dy2 = nextY - y, closed = Math.abs(points[l] - x) < 1e-3 && Math.abs(points[l + 1] - y) < 1e-3, prevX, prevY, i, dx1, dy1, r1, r2, r3, tl2, mx1, mx2, mxm, my1, my2, mym;
-  if (closed) {
-    points.push(nextX, nextY);
-    nextX = x;
-    nextY = y;
-    x = points[l - 2];
-    y = points[l - 1];
-    points.unshift(x, y);
-    l += 4;
-  }
-  curviness = curviness || curviness === 0 ? +curviness : 1;
-  for (i = 2; i < l; i += 2) {
-    prevX = x;
-    prevY = y;
-    x = nextX;
-    y = nextY;
-    nextX = +points[i + 2];
-    nextY = +points[i + 3];
-    if (x === nextX && y === nextY) {
-      continue;
-    }
-    dx1 = dx2;
-    dy1 = dy2;
-    dx2 = nextX - x;
-    dy2 = nextY - y;
-    r1 = _sqrt2(dx1 * dx1 + dy1 * dy1);
-    r2 = _sqrt2(dx2 * dx2 + dy2 * dy2);
-    r3 = _sqrt2(Math.pow(dx2 / r2 + dx1 / r1, 2) + Math.pow(dy2 / r2 + dy1 / r1, 2));
-    tl2 = (r1 + r2) * curviness * 0.25 / r3;
-    mx1 = x - (x - prevX) * (r1 ? tl2 / r1 : 0);
-    mx2 = x + (nextX - x) * (r2 ? tl2 / r2 : 0);
-    mxm = x - (mx1 + ((mx2 - mx1) * (r1 * 3 / (r1 + r2) + 0.5) / 4 || 0));
-    my1 = y - (y - prevY) * (r1 ? tl2 / r1 : 0);
-    my2 = y + (nextY - y) * (r2 ? tl2 / r2 : 0);
-    mym = y - (my1 + ((my2 - my1) * (r1 * 3 / (r1 + r2) + 0.5) / 4 || 0));
-    if (x !== prevX || y !== prevY) {
-      segment.push(
-        _round5(mx1 + mxm),
-        // first control point
-        _round5(my1 + mym),
-        _round5(x),
-        // anchor
-        _round5(y),
-        _round5(mx2 + mxm),
-        // second control point
-        _round5(my2 + mym)
-      );
-    }
-  }
-  x !== nextX || y !== nextY || segment.length < 4 ? segment.push(_round5(nextX), _round5(nextY), _round5(nextX), _round5(nextY)) : segment.length -= 2;
-  if (segment.length === 2) {
-    segment.push(x, y, x, y, x, y);
-  } else if (closed) {
-    segment.splice(0, 6);
-    segment.length = segment.length - 6;
-  }
-  return segment;
-}
-function rawPathToString(rawPath) {
-  if (_isNumber5(rawPath[0])) {
-    rawPath = [rawPath];
-  }
-  var result = "", l = rawPath.length, sl, s, i, segment;
-  for (s = 0; s < l; s++) {
-    segment = rawPath[s];
-    result += "M" + _round5(segment[0]) + "," + _round5(segment[1]) + " C";
-    sl = segment.length;
-    for (i = 2; i < sl; i++) {
-      result += _round5(segment[i++]) + "," + _round5(segment[i++]) + " " + _round5(segment[i++]) + "," + _round5(segment[i++]) + " " + _round5(segment[i++]) + "," + _round5(segment[i]) + " ";
-    }
-    if (segment.closed) {
-      result += "z";
-    }
-  }
-  return result;
-}
-
-// node_modules/gsap/utils/matrix.js
-var _doc5;
-var _win5;
-var _docElement2;
-var _body3;
-var _divContainer;
-var _svgContainer;
-var _identityMatrix;
-var _gEl;
-var _transformProp3 = "transform";
-var _transformOriginProp2 = _transformProp3 + "Origin";
-var _hasOffsetBug;
-var _setDoc = function _setDoc2(element) {
-  var doc = element.ownerDocument || element;
-  if (!(_transformProp3 in element.style) && "msTransform" in element.style) {
-    _transformProp3 = "msTransform";
-    _transformOriginProp2 = _transformProp3 + "Origin";
-  }
-  while (doc.parentNode && (doc = doc.parentNode)) {
-  }
-  _win5 = window;
-  _identityMatrix = new Matrix2D();
-  if (doc) {
-    _doc5 = doc;
-    _docElement2 = doc.documentElement;
-    _body3 = doc.body;
-    _gEl = _doc5.createElementNS("http://www.w3.org/2000/svg", "g");
-    _gEl.style.transform = "none";
-    var d1 = doc.createElement("div"), d2 = doc.createElement("div"), root = doc && (doc.body || doc.firstElementChild);
-    if (root && root.appendChild) {
-      root.appendChild(d1);
-      d1.appendChild(d2);
-      d1.setAttribute("style", "position:static;transform:translate3d(0,0,1px)");
-      _hasOffsetBug = d2.offsetParent !== d1;
-      root.removeChild(d1);
-    }
-  }
-  return doc;
-};
-var _forceNonZeroScale = function _forceNonZeroScale2(e) {
-  var a, cache;
-  while (e && e !== _body3) {
-    cache = e._gsap;
-    cache && cache.uncache && cache.get(e, "x");
-    if (cache && !cache.scaleX && !cache.scaleY && cache.renderTransform) {
-      cache.scaleX = cache.scaleY = 1e-4;
-      cache.renderTransform(1, cache);
-      a ? a.push(cache) : a = [cache];
-    }
-    e = e.parentNode;
-  }
-  return a;
-};
-var _svgTemps = [];
-var _divTemps = [];
-var _getDocScrollTop = function _getDocScrollTop2() {
-  return _win5.pageYOffset || _doc5.scrollTop || _docElement2.scrollTop || _body3.scrollTop || 0;
-};
-var _getDocScrollLeft = function _getDocScrollLeft2() {
-  return _win5.pageXOffset || _doc5.scrollLeft || _docElement2.scrollLeft || _body3.scrollLeft || 0;
-};
-var _svgOwner = function _svgOwner2(element) {
-  return element.ownerSVGElement || ((element.tagName + "").toLowerCase() === "svg" ? element : null);
-};
-var _isFixed = function _isFixed2(element) {
-  if (_win5.getComputedStyle(element).position === "fixed") {
-    return true;
-  }
-  element = element.parentNode;
-  if (element && element.nodeType === 1) {
-    return _isFixed2(element);
-  }
-};
-var _createSibling = function _createSibling2(element, i) {
-  if (element.parentNode && (_doc5 || _setDoc(element))) {
-    var svg = _svgOwner(element), ns = svg ? svg.getAttribute("xmlns") || "http://www.w3.org/2000/svg" : "http://www.w3.org/1999/xhtml", type = svg ? i ? "rect" : "g" : "div", x = i !== 2 ? 0 : 100, y = i === 3 ? 100 : 0, css = "position:absolute;display:block;pointer-events:none;margin:0;padding:0;", e = _doc5.createElementNS ? _doc5.createElementNS(ns.replace(/^https/, "http"), type) : _doc5.createElement(type);
-    if (i) {
-      if (!svg) {
-        if (!_divContainer) {
-          _divContainer = _createSibling2(element);
-          _divContainer.style.cssText = css;
-        }
-        e.style.cssText = css + "width:0.1px;height:0.1px;top:" + y + "px;left:" + x + "px";
-        _divContainer.appendChild(e);
-      } else {
-        _svgContainer || (_svgContainer = _createSibling2(element));
-        e.setAttribute("width", 0.01);
-        e.setAttribute("height", 0.01);
-        e.setAttribute("transform", "translate(" + x + "," + y + ")");
-        _svgContainer.appendChild(e);
-      }
-    }
-    return e;
-  }
-  throw "Need document and parent.";
-};
-var _consolidate = function _consolidate2(m) {
-  var c = new Matrix2D(), i = 0;
-  for (; i < m.numberOfItems; i++) {
-    c.multiply(m.getItem(i).matrix);
-  }
-  return c;
-};
-var _getCTM = function _getCTM2(svg) {
-  var m = svg.getCTM(), transform;
-  if (!m) {
-    transform = svg.style[_transformProp3];
-    svg.style[_transformProp3] = "none";
-    svg.appendChild(_gEl);
-    m = _gEl.getCTM();
-    svg.removeChild(_gEl);
-    transform ? svg.style[_transformProp3] = transform : svg.style.removeProperty(_transformProp3.replace(/([A-Z])/g, "-$1").toLowerCase());
-  }
-  return m || _identityMatrix.clone();
-};
-var _placeSiblings = function _placeSiblings2(element, adjustGOffset) {
-  var svg = _svgOwner(element), isRootSVG = element === svg, siblings = svg ? _svgTemps : _divTemps, parent = element.parentNode, container, m, b, x, y, cs;
-  if (element === _win5) {
-    return element;
-  }
-  siblings.length || siblings.push(_createSibling(element, 1), _createSibling(element, 2), _createSibling(element, 3));
-  container = svg ? _svgContainer : _divContainer;
-  if (svg) {
-    if (isRootSVG) {
-      b = _getCTM(element);
-      x = -b.e / b.a;
-      y = -b.f / b.d;
-      m = _identityMatrix;
-    } else if (element.getBBox) {
-      b = element.getBBox();
-      m = element.transform ? element.transform.baseVal : {};
-      m = !m.numberOfItems ? _identityMatrix : m.numberOfItems > 1 ? _consolidate(m) : m.getItem(0).matrix;
-      x = m.a * b.x + m.c * b.y;
-      y = m.b * b.x + m.d * b.y;
-    } else {
-      m = new Matrix2D();
-      x = y = 0;
-    }
-    if (adjustGOffset && element.tagName.toLowerCase() === "g") {
-      x = y = 0;
-    }
-    (isRootSVG ? svg : parent).appendChild(container);
-    container.setAttribute("transform", "matrix(" + m.a + "," + m.b + "," + m.c + "," + m.d + "," + (m.e + x) + "," + (m.f + y) + ")");
-  } else {
-    x = y = 0;
-    if (_hasOffsetBug) {
-      m = element.offsetParent;
-      b = element;
-      while (b && (b = b.parentNode) && b !== m && b.parentNode) {
-        if ((_win5.getComputedStyle(b)[_transformProp3] + "").length > 4) {
-          x = b.offsetLeft;
-          y = b.offsetTop;
-          b = 0;
-        }
-      }
-    }
-    cs = _win5.getComputedStyle(element);
-    if (cs.position !== "absolute" && cs.position !== "fixed") {
-      m = element.offsetParent;
-      while (parent && parent !== m) {
-        x += parent.scrollLeft || 0;
-        y += parent.scrollTop || 0;
-        parent = parent.parentNode;
-      }
-    }
-    b = container.style;
-    b.top = element.offsetTop - y + "px";
-    b.left = element.offsetLeft - x + "px";
-    b[_transformProp3] = cs[_transformProp3];
-    b[_transformOriginProp2] = cs[_transformOriginProp2];
-    b.position = cs.position === "fixed" ? "fixed" : "absolute";
-    element.parentNode.appendChild(container);
-  }
-  return container;
-};
-var _setMatrix = function _setMatrix2(m, a, b, c, d, e, f) {
-  m.a = a;
-  m.b = b;
-  m.c = c;
-  m.d = d;
-  m.e = e;
-  m.f = f;
-  return m;
-};
-var Matrix2D = /* @__PURE__ */ function() {
-  function Matrix2D2(a, b, c, d, e, f) {
-    if (a === void 0) {
-      a = 1;
-    }
-    if (b === void 0) {
-      b = 0;
-    }
-    if (c === void 0) {
-      c = 0;
-    }
-    if (d === void 0) {
-      d = 1;
-    }
-    if (e === void 0) {
-      e = 0;
-    }
-    if (f === void 0) {
-      f = 0;
-    }
-    _setMatrix(this, a, b, c, d, e, f);
-  }
-  var _proto = Matrix2D2.prototype;
-  _proto.inverse = function inverse() {
-    var a = this.a, b = this.b, c = this.c, d = this.d, e = this.e, f = this.f, determinant = a * d - b * c || 1e-10;
-    return _setMatrix(this, d / determinant, -b / determinant, -c / determinant, a / determinant, (c * f - d * e) / determinant, -(a * f - b * e) / determinant);
-  };
-  _proto.multiply = function multiply(matrix) {
-    var a = this.a, b = this.b, c = this.c, d = this.d, e = this.e, f = this.f, a2 = matrix.a, b2 = matrix.c, c2 = matrix.b, d2 = matrix.d, e2 = matrix.e, f2 = matrix.f;
-    return _setMatrix(this, a2 * a + c2 * c, a2 * b + c2 * d, b2 * a + d2 * c, b2 * b + d2 * d, e + e2 * a + f2 * c, f + e2 * b + f2 * d);
-  };
-  _proto.clone = function clone() {
-    return new Matrix2D2(this.a, this.b, this.c, this.d, this.e, this.f);
-  };
-  _proto.equals = function equals(matrix) {
-    var a = this.a, b = this.b, c = this.c, d = this.d, e = this.e, f = this.f;
-    return a === matrix.a && b === matrix.b && c === matrix.c && d === matrix.d && e === matrix.e && f === matrix.f;
-  };
-  _proto.apply = function apply(point, decoratee) {
-    if (decoratee === void 0) {
-      decoratee = {};
-    }
-    var x = point.x, y = point.y, a = this.a, b = this.b, c = this.c, d = this.d, e = this.e, f = this.f;
-    decoratee.x = x * a + y * c + e || 0;
-    decoratee.y = x * b + y * d + f || 0;
-    return decoratee;
-  };
-  return Matrix2D2;
-}();
-function getGlobalMatrix(element, inverse, adjustGOffset, includeScrollInFixed) {
-  if (!element || !element.parentNode || (_doc5 || _setDoc(element)).documentElement === element) {
-    return new Matrix2D();
-  }
-  var zeroScales = _forceNonZeroScale(element), svg = _svgOwner(element), temps = svg ? _svgTemps : _divTemps, container = _placeSiblings(element, adjustGOffset), b1 = temps[0].getBoundingClientRect(), b2 = temps[1].getBoundingClientRect(), b3 = temps[2].getBoundingClientRect(), parent = container.parentNode, isFixed = !includeScrollInFixed && _isFixed(element), m = new Matrix2D((b2.left - b1.left) / 100, (b2.top - b1.top) / 100, (b3.left - b1.left) / 100, (b3.top - b1.top) / 100, b1.left + (isFixed ? 0 : _getDocScrollLeft()), b1.top + (isFixed ? 0 : _getDocScrollTop()));
-  parent.removeChild(container);
-  if (zeroScales) {
-    b1 = zeroScales.length;
-    while (b1--) {
-      b2 = zeroScales[b1];
-      b2.scaleX = b2.scaleY = 0;
-      b2.renderTransform(1, b2);
-    }
-  }
-  return inverse ? m.inverse() : m;
-}
-
-// node_modules/gsap/MotionPathPlugin.js
-var _xProps = "x,translateX,left,marginLeft,xPercent".split(",");
-var _yProps = "y,translateY,top,marginTop,yPercent".split(",");
-var _DEG2RAD3 = Math.PI / 180;
-var gsap4;
-var PropTween2;
-var _getUnit;
-var _toArray2;
-var _getStyleSaver3;
-var _reverting3;
-var _getGSAP5 = function _getGSAP6() {
-  return gsap4 || typeof window !== "undefined" && (gsap4 = window.gsap) && gsap4.registerPlugin && gsap4;
-};
-var _populateSegmentFromArray = function _populateSegmentFromArray2(segment, values, property, mode) {
-  var l = values.length, si = mode === 2 ? 0 : mode, i = 0, v;
-  for (; i < l; i++) {
-    segment[si] = v = parseFloat(values[i][property]);
-    mode === 2 && (segment[si + 1] = 0);
-    si += 2;
-  }
-  return segment;
-};
-var _getPropNum = function _getPropNum2(target, prop, unit) {
-  return parseFloat(target._gsap.get(target, prop, unit || "px")) || 0;
-};
-var _relativize = function _relativize2(segment) {
-  var x = segment[0], y = segment[1], i;
-  for (i = 2; i < segment.length; i += 2) {
-    x = segment[i] += x;
-    y = segment[i + 1] += y;
-  }
-};
-var _segmentToRawPath = function _segmentToRawPath2(plugin, segment, target, x, y, slicer, vars, unitX, unitY) {
-  if (vars.type === "cubic") {
-    segment = [segment];
-  } else {
-    vars.fromCurrent !== false && segment.unshift(_getPropNum(target, x, unitX), y ? _getPropNum(target, y, unitY) : 0);
-    vars.relative && _relativize(segment);
-    var pointFunc = y ? pointsToSegment : flatPointsToSegment;
-    segment = [pointFunc(segment, vars.curviness)];
-  }
-  segment = slicer(_align(segment, target, vars));
-  _addDimensionalPropTween(plugin, target, x, segment, "x", unitX);
-  y && _addDimensionalPropTween(plugin, target, y, segment, "y", unitY);
-  return cacheRawPathMeasurements(segment, vars.resolution || (vars.curviness === 0 ? 20 : 12));
-};
-var _emptyFunc3 = function _emptyFunc4(v) {
-  return v;
-};
-var _numExp2 = /[-+\.]*\d+\.?(?:e-|e\+)?\d*/g;
-var _originToPoint = function _originToPoint2(element, origin, parentMatrix) {
-  var m = getGlobalMatrix(element), x = 0, y = 0, svg;
-  if ((element.tagName + "").toLowerCase() === "svg") {
-    svg = element.viewBox.baseVal;
-    svg.width || (svg = {
-      width: +element.getAttribute("width"),
-      height: +element.getAttribute("height")
-    });
-  } else {
-    svg = origin && element.getBBox && element.getBBox();
-  }
-  if (origin && origin !== "auto") {
-    x = origin.push ? origin[0] * (svg ? svg.width : element.offsetWidth || 0) : origin.x;
-    y = origin.push ? origin[1] * (svg ? svg.height : element.offsetHeight || 0) : origin.y;
-  }
-  return parentMatrix.apply(x || y ? m.apply({
-    x,
-    y
-  }) : {
-    x: m.e,
-    y: m.f
-  });
-};
-var _getAlignMatrix = function _getAlignMatrix2(fromElement, toElement, fromOrigin, toOrigin) {
-  var parentMatrix = getGlobalMatrix(fromElement.parentNode, true, true), m = parentMatrix.clone().multiply(getGlobalMatrix(toElement)), fromPoint = _originToPoint(fromElement, fromOrigin, parentMatrix), _originToPoint22 = _originToPoint(toElement, toOrigin, parentMatrix), x = _originToPoint22.x, y = _originToPoint22.y, p;
-  m.e = m.f = 0;
-  if (toOrigin === "auto" && toElement.getTotalLength && toElement.tagName.toLowerCase() === "path") {
-    p = toElement.getAttribute("d").match(_numExp2) || [];
-    p = m.apply({
-      x: +p[0],
-      y: +p[1]
-    });
-    x += p.x;
-    y += p.y;
-  }
-  if (p) {
-    p = m.apply(toElement.getBBox());
-    x -= p.x;
-    y -= p.y;
-  }
-  m.e = x - fromPoint.x;
-  m.f = y - fromPoint.y;
-  return m;
-};
-var _align = function _align2(rawPath, target, _ref) {
-  var align = _ref.align, matrix = _ref.matrix, offsetX = _ref.offsetX, offsetY = _ref.offsetY, alignOrigin = _ref.alignOrigin;
-  var x = rawPath[0][0], y = rawPath[0][1], curX = _getPropNum(target, "x"), curY = _getPropNum(target, "y"), alignTarget, m, p;
-  if (!rawPath || !rawPath.length) {
-    return getRawPath("M0,0L0,0");
-  }
-  if (align) {
-    if (align === "self" || (alignTarget = _toArray2(align)[0] || target) === target) {
-      transformRawPath(rawPath, 1, 0, 0, 1, curX - x, curY - y);
-    } else {
-      if (alignOrigin && alignOrigin[2] !== false) {
-        gsap4.set(target, {
-          transformOrigin: alignOrigin[0] * 100 + "% " + alignOrigin[1] * 100 + "%"
-        });
-      } else {
-        alignOrigin = [_getPropNum(target, "xPercent") / -100, _getPropNum(target, "yPercent") / -100];
-      }
-      m = _getAlignMatrix(target, alignTarget, alignOrigin, "auto");
-      p = m.apply({
-        x,
-        y
-      });
-      transformRawPath(rawPath, m.a, m.b, m.c, m.d, curX + m.e - (p.x - m.e), curY + m.f - (p.y - m.f));
-    }
-  }
-  if (matrix) {
-    transformRawPath(rawPath, matrix.a, matrix.b, matrix.c, matrix.d, matrix.e, matrix.f);
-  } else if (offsetX || offsetY) {
-    transformRawPath(rawPath, 1, 0, 0, 1, offsetX || 0, offsetY || 0);
-  }
-  return rawPath;
-};
-var _addDimensionalPropTween = function _addDimensionalPropTween2(plugin, target, property, rawPath, pathProperty, forceUnit) {
-  var cache = target._gsap, harness = cache.harness, alias = harness && harness.aliases && harness.aliases[property], prop = alias && alias.indexOf(",") < 0 ? alias : property, pt = plugin._pt = new PropTween2(plugin._pt, target, prop, 0, 0, _emptyFunc3, 0, cache.set(target, prop, plugin));
-  pt.u = _getUnit(cache.get(target, prop, forceUnit)) || 0;
-  pt.path = rawPath;
-  pt.pp = pathProperty;
-  plugin._props.push(prop);
-};
-var _sliceModifier = function _sliceModifier2(start, end) {
-  return function(rawPath) {
-    return start || end !== 1 ? sliceRawPath(rawPath, start, end) : rawPath;
-  };
-};
-var MotionPathPlugin = {
-  version: "3.12.7",
-  name: "motionPath",
-  register: function register(core, Plugin, propTween) {
-    gsap4 = core;
-    _getUnit = gsap4.utils.getUnit;
-    _toArray2 = gsap4.utils.toArray;
-    _getStyleSaver3 = gsap4.core.getStyleSaver;
-    _reverting3 = gsap4.core.reverting || function() {
-    };
-    PropTween2 = propTween;
-  },
-  init: function init4(target, vars, tween) {
-    if (!gsap4) {
-      console.warn("Please gsap.registerPlugin(MotionPathPlugin)");
-      return false;
-    }
-    if (!(typeof vars === "object" && !vars.style) || !vars.path) {
-      vars = {
-        path: vars
-      };
-    }
-    var rawPaths = [], _vars = vars, path = _vars.path, autoRotate = _vars.autoRotate, unitX = _vars.unitX, unitY = _vars.unitY, x = _vars.x, y = _vars.y, firstObj = path[0], slicer = _sliceModifier(vars.start, "end" in vars ? vars.end : 1), rawPath, p;
-    this.rawPaths = rawPaths;
-    this.target = target;
-    this.tween = tween;
-    this.styles = _getStyleSaver3 && _getStyleSaver3(target, "transform");
-    if (this.rotate = autoRotate || autoRotate === 0) {
-      this.rOffset = parseFloat(autoRotate) || 0;
-      this.radians = !!vars.useRadians;
-      this.rProp = vars.rotation || "rotation";
-      this.rSet = target._gsap.set(target, this.rProp, this);
-      this.ru = _getUnit(target._gsap.get(target, this.rProp)) || 0;
-    }
-    if (Array.isArray(path) && !("closed" in path) && typeof firstObj !== "number") {
-      for (p in firstObj) {
-        if (!x && ~_xProps.indexOf(p)) {
-          x = p;
-        } else if (!y && ~_yProps.indexOf(p)) {
-          y = p;
-        }
-      }
-      if (x && y) {
-        rawPaths.push(_segmentToRawPath(this, _populateSegmentFromArray(_populateSegmentFromArray([], path, x, 0), path, y, 1), target, x, y, slicer, vars, unitX || _getUnit(path[0][x]), unitY || _getUnit(path[0][y])));
-      } else {
-        x = y = 0;
-      }
-      for (p in firstObj) {
-        p !== x && p !== y && rawPaths.push(_segmentToRawPath(this, _populateSegmentFromArray([], path, p, 2), target, p, 0, slicer, vars, _getUnit(path[0][p])));
-      }
-    } else {
-      rawPath = slicer(_align(getRawPath(vars.path), target, vars));
-      cacheRawPathMeasurements(rawPath, vars.resolution);
-      rawPaths.push(rawPath);
-      _addDimensionalPropTween(this, target, vars.x || "x", rawPath, "x", vars.unitX || "px");
-      _addDimensionalPropTween(this, target, vars.y || "y", rawPath, "y", vars.unitY || "px");
-    }
-    tween.vars.immediateRender && this.render(tween.progress(), this);
-  },
-  render: function render3(ratio, data) {
-    var rawPaths = data.rawPaths, i = rawPaths.length, pt = data._pt;
-    if (data.tween._time || !_reverting3()) {
-      if (ratio > 1) {
-        ratio = 1;
-      } else if (ratio < 0) {
-        ratio = 0;
-      }
-      while (i--) {
-        getPositionOnPath(rawPaths[i], ratio, !i && data.rotate, rawPaths[i]);
-      }
-      while (pt) {
-        pt.set(pt.t, pt.p, pt.path[pt.pp] + pt.u, pt.d, ratio);
-        pt = pt._next;
-      }
-      data.rotate && data.rSet(data.target, data.rProp, rawPaths[0].angle * (data.radians ? _DEG2RAD3 : 1) + data.rOffset + data.ru, data, ratio);
-    } else {
-      data.styles.revert();
-    }
-  },
-  getLength: function getLength(path) {
-    return cacheRawPathMeasurements(getRawPath(path)).totalLength;
-  },
-  sliceRawPath,
-  getRawPath,
-  pointsToSegment,
-  stringToRawPath,
-  rawPathToString,
-  transformRawPath,
-  getGlobalMatrix,
-  getPositionOnPath,
-  cacheRawPathMeasurements,
-  convertToPath: function convertToPath2(targets, swap) {
-    return _toArray2(targets).map(function(target) {
-      return convertToPath(target, swap !== false);
-    });
-  },
-  convertCoordinates: function convertCoordinates(fromElement, toElement, point) {
-    var m = getGlobalMatrix(toElement, true, true).multiply(getGlobalMatrix(fromElement));
-    return point ? m.apply(point) : m;
-  },
-  getAlignMatrix: _getAlignMatrix,
-  getRelativePosition: function getRelativePosition(fromElement, toElement, fromOrigin, toOrigin) {
-    var m = _getAlignMatrix(fromElement, toElement, fromOrigin, toOrigin);
-    return {
-      x: m.e,
-      y: m.f
-    };
-  },
-  arrayToRawPath: function arrayToRawPath(value, vars) {
-    vars = vars || {};
-    var segment = _populateSegmentFromArray(_populateSegmentFromArray([], value, vars.x || "x", 0), value, vars.y || "y", 1);
-    vars.relative && _relativize(segment);
-    return [vars.type === "cubic" ? segment : pointsToSegment(segment, vars.curviness)];
-  }
-};
-_getGSAP5() && gsap4.registerPlugin(MotionPathPlugin);
+_getGSAP5() && gsap4.registerPlugin(ScrollTrigger2);
 
 // node_modules/gsap/DrawSVGPlugin.js
 var gsap5;
@@ -8137,7 +8137,7 @@ var tl = gsapWithCSS.timeline({
     end: "+=5000",
     // end after scrolling 500px beyond the start
     scrub: 2.5,
-    // smooth scrubbing, takes 1 second to "catch up" to the scrollbar
+    // smooth scrubbing, takes 1 second tu "catch up" to the scrollbar
     snap: {
       snapTo: "labels",
       // snap to the closest label in the timeline
@@ -8147,6 +8147,16 @@ var tl = gsapWithCSS.timeline({
       // wait 0.2 seconds from the last scroll event before doing the snapping
       ease: "power1.inOut"
       // the ease of the snap animation ("power3" by default)
+    },
+    onUpdate: (self) => {
+      console.log(
+        "progress:",
+        self.progress.toFixed(3),
+        "direction:",
+        self.direction,
+        "velocity",
+        self.getVelocity()
+      );
     }
   },
   defaults: { ease: "none" }
@@ -8173,6 +8183,18 @@ tl.to(
     top: "-80.5rem"
   },
   "one"
+);
+tl.fromTo(
+  ".timeline_heading",
+  {
+    autoAlpha: 1
+  },
+  {
+    ease: "none",
+    duration: 150,
+    autoAlpha: 0
+  },
+  "one+=50"
 );
 var blobSVGs = gsapWithCSS.utils.toArray(".timeline_blob-svg");
 blobSVGs.splice(0, 1);
@@ -8220,7 +8242,7 @@ tl.fromTo(
   bgImages,
   { autoAlpha: 1 },
   { autoAlpha: 0, duration: 150, stagger: { each: 500 } },
-  "two+=175"
+  "second+=175"
 );
 tl.fromTo(
   bgImages,
@@ -8282,10 +8304,20 @@ var textOut = {
 };
 for (let text of texts) {
   if (text.id !== "#text-1") {
-    tl.fromTo(text.id, { autoAlpha: "0%" }, textIn, `${text.position}-=230`);
+    tl.fromTo(
+      text.id,
+      { autoAlpha: "0%" },
+      textIn,
+      `${text.position}-=230`
+    );
   }
   if (text.id !== "#text-8") {
-    tl.fromTo(text.id, { autoAlpha: "100%" }, textOut, `${text.position}+=50`);
+    tl.fromTo(
+      text.id,
+      { autoAlpha: "100%" },
+      textOut,
+      `${text.position}+=50`
+    );
   }
 }
 /*! Bundled license information:
@@ -8307,28 +8339,6 @@ gsap/CSSPlugin.js:
    * https://gsap.com
    *
    * Copyright 2008-2025, GreenSock. All rights reserved.
-   * Subject to the terms at https://gsap.com/standard-license or for
-   * Club GSAP members, the agreement issued with that membership.
-   * @author: Jack Doyle, jack@greensock.com
-  *)
-
-gsap/Observer.js:
-  (*!
-   * Observer 3.12.7
-   * https://gsap.com
-   *
-   * @license Copyright 2008-2025, GreenSock. All rights reserved.
-   * Subject to the terms at https://gsap.com/standard-license or for
-   * Club GSAP members, the agreement issued with that membership.
-   * @author: Jack Doyle, jack@greensock.com
-  *)
-
-gsap/ScrollTrigger.js:
-  (*!
-   * ScrollTrigger 3.12.7
-   * https://gsap.com
-   *
-   * @license Copyright 2008-2025, GreenSock. All rights reserved.
    * Subject to the terms at https://gsap.com/standard-license or for
    * Club GSAP members, the agreement issued with that membership.
    * @author: Jack Doyle, jack@greensock.com
@@ -8359,6 +8369,28 @@ gsap/utils/matrix.js:
 gsap/MotionPathPlugin.js:
   (*!
    * MotionPathPlugin 3.12.7
+   * https://gsap.com
+   *
+   * @license Copyright 2008-2025, GreenSock. All rights reserved.
+   * Subject to the terms at https://gsap.com/standard-license or for
+   * Club GSAP members, the agreement issued with that membership.
+   * @author: Jack Doyle, jack@greensock.com
+  *)
+
+gsap/Observer.js:
+  (*!
+   * Observer 3.12.7
+   * https://gsap.com
+   *
+   * @license Copyright 2008-2025, GreenSock. All rights reserved.
+   * Subject to the terms at https://gsap.com/standard-license or for
+   * Club GSAP members, the agreement issued with that membership.
+   * @author: Jack Doyle, jack@greensock.com
+  *)
+
+gsap/ScrollTrigger.js:
+  (*!
+   * ScrollTrigger 3.12.7
    * https://gsap.com
    *
    * @license Copyright 2008-2025, GreenSock. All rights reserved.
