@@ -7439,11 +7439,11 @@ var ScrollTrigger2 = /* @__PURE__ */ function() {
         _root2 = [_win5, _doc5, _docEl2, _body3];
         if (gsap4.matchMedia) {
           ScrollTrigger3.matchMedia = function(vars) {
-            var mm = gsap4.matchMedia(), p;
+            var mm2 = gsap4.matchMedia(), p;
             for (p in vars) {
-              mm.add(p, vars[p]);
+              mm2.add(p, vars[p]);
             }
-            return mm;
+            return mm2;
           };
           gsap4.addEventListener("matchMediaInit", function() {
             return _revertAll();
@@ -8131,7 +8131,7 @@ var tl = gsapWithCSS.timeline({
     trigger: "#timeline-track",
     pin: true,
     // pin the trigger element while active
-    markers: true,
+    // markers: true,
     start: "top top",
     // when the top of the trigger hits the top of the viewport
     end: "+=5000",
@@ -8147,124 +8147,176 @@ var tl = gsapWithCSS.timeline({
       // wait 0.2 seconds from the last scroll event before doing the snapping
       ease: "power1.inOut"
       // the ease of the snap animation ("power3" by default)
-    },
-    onUpdate: (self) => {
-      console.log(
-        "progress:",
-        self.progress.toFixed(3),
-        "direction:",
-        self.direction,
-        "velocity",
-        self.getVelocity()
-      );
     }
+    // onUpdate: (self) => {
+    //     console.log(self);
+    //     console.log(
+    //         "progress:",
+    //         self.progress.toFixed(3),
+    //         "direction:",
+    //         self.direction,
+    //         "velocity",
+    //         self.getVelocity()
+    //     );
+    // },
   },
   defaults: { ease: "none" }
 });
-tl.addLabel("one", "+=0");
-tl.addLabel("second", "+=500");
-tl.addLabel("third", "+=1000");
-tl.addLabel("fourth", "+=1500");
-tl.addLabel("fifth", "+=2000");
-tl.addLabel("sixth", "+=2500");
-tl.addLabel("seventh", "+=3000");
-tl.addLabel("eight", "+=3500");
+tl.clear();
+tl.to({}, { duration: 3500 }, 0);
+tl.addLabel("one", "0");
+tl.addLabel("two", "500");
+tl.addLabel("three", "1000");
+tl.addLabel("four", "1500");
+tl.addLabel("five", "2000");
+tl.addLabel("six", "2500");
+tl.addLabel("seven", "3000");
+tl.addLabel("eight", "3500");
+var mm = gsapWithCSS.matchMedia();
 tl.fromTo(
-  "#timeline-line-svg",
+  ".timeline_line-svg.is-animated",
+  // Removed tablet-up qualifier to apply to both
   { drawSVG: "0% 0%" },
   { duration: 3500, drawSVG: "0% 100%" },
   "one"
 );
-tl.to(
-  "#timeline-dates-container",
-  {
-    ease: "none",
-    duration: 3500,
-    top: "-80.5rem"
-  },
-  "one"
-);
-tl.fromTo(
-  ".timeline_heading",
-  {
-    autoAlpha: 1
-  },
-  {
-    ease: "none",
-    duration: 150,
-    autoAlpha: 0
-  },
-  "one+=50"
-);
-var blobSVGs = gsapWithCSS.utils.toArray(".timeline_blob-svg");
-blobSVGs.splice(0, 1);
-tl.fromTo(
-  blobSVGs,
-  { opacity: "60%" },
-  { duration: "150", opacity: "100%", stagger: { each: 500 } },
-  "second-=200"
-);
+mm.add("(min-width: 768px)", () => {
+  tl.to(
+    "#timeline-dates-container",
+    {
+      ease: "none",
+      duration: 3500,
+      top: "-80.5rem"
+    },
+    "one"
+  );
+  tl.fromTo(
+    ".timeline_heading",
+    {
+      autoAlpha: 1
+    },
+    {
+      ease: "none",
+      duration: 150,
+      autoAlpha: 0
+    },
+    "one+=50"
+  );
+  const blobSVGs = gsapWithCSS.utils.toArray("#desktop-dates .timeline_blob-svg");
+  blobSVGs.splice(0, 1);
+  tl.fromTo(
+    blobSVGs,
+    { opacity: "60%" },
+    { duration: "150", opacity: "100%", stagger: { each: 500 } },
+    "two-=200"
+  );
+});
+mm.add("(max-width: 767px)", () => {
+  tl.to(
+    "#timeline-dates-container-s",
+    {
+      ease: "none",
+      duration: 3500,
+      left: "-80.5rem"
+    },
+    "one"
+  );
+  const blobSVGs = gsapWithCSS.utils.toArray("#mobile-dates .timeline_blob-svg");
+  blobSVGs.splice(0, 1);
+  tl.fromTo(
+    blobSVGs,
+    { opacity: "60%" },
+    { duration: "150", opacity: "100%", stagger: { each: 500 } },
+    "two-=200"
+  );
+});
 var bgImages = gsapWithCSS.utils.toArray(".timeline_background-image");
+var allBgImages = [...bgImages];
 tl.fromTo(
-  bgImages[0],
-  {
-    autoAlpha: 1
-  },
+  allBgImages[0],
+  { autoAlpha: 1 },
   { autoAlpha: 0, duration: 150 },
   "one+=175"
 );
 tl.fromTo(
-  bgImages[0],
-  {
-    top: "-7.5%"
-  },
-  {
-    top: "-15%",
-    duration: 325
-  },
+  allBgImages[0],
+  { top: "-7.5%" },
+  { top: "-15%", duration: 325 },
   "one"
 );
-bgImages.splice(0, 1);
+var middleImages = allBgImages.slice(1, 7);
 tl.fromTo(
-  bgImages,
+  middleImages,
   { autoAlpha: 0 },
-  { autoAlpha: 1, duration: 150, stagger: { each: 500 } },
+  {
+    autoAlpha: 1,
+    duration: 150,
+    stagger: {
+      each: 500,
+      from: "start"
+    }
+  },
   "one+=175"
 );
 tl.fromTo(
-  bgImages[6],
+  allBgImages[7],
+  // Assuming there are 8 images total
   { top: "0%" },
   { top: "-7.5%", duration: 325 },
-  "seventh+=175"
+  "seven+=175"
 );
-bgImages.splice(6, 1);
 tl.fromTo(
-  bgImages,
+  middleImages,
   { autoAlpha: 1 },
-  { autoAlpha: 0, duration: 150, stagger: { each: 500 } },
-  "second+=175"
+  {
+    autoAlpha: 0,
+    duration: 150,
+    stagger: {
+      each: 500,
+      from: "start"
+    }
+  },
+  "two+=175"
 );
 tl.fromTo(
-  bgImages,
+  middleImages,
   { top: "0%" },
-  { top: "-15%", duration: 650, stagger: { each: 500 } },
+  {
+    top: "-15%",
+    duration: 650,
+    stagger: {
+      each: 500,
+      from: "start"
+    }
+  },
   "one+=175"
 );
+tl.to({}, { duration: 0.1 }, "eight");
+var fontSizeLarge;
+var paddingSize;
+mm.add("(min-width: 768px)", () => {
+  fontSizeLarge = "4.5rem";
+  paddingSize = "2rem";
+});
+mm.add("(max-width: 767px)", () => {
+  fontSizeLarge = "2.25rem";
+  paddingSize = "0rem";
+});
 var years = [
   { id: "#year-1", position: "one" },
-  { id: "#year-2", position: "second" },
-  { id: "#year-3", position: "third" },
-  { id: "#year-4", position: "fourth" },
-  { id: "#year-5", position: "fifth" },
-  { id: "#year-6", position: "sixth" },
-  { id: "#year-7", position: "seventh" },
+  { id: "#year-2", position: "two" },
+  { id: "#year-3", position: "three" },
+  { id: "#year-4", position: "four" },
+  { id: "#year-5", position: "five" },
+  { id: "#year-6", position: "six" },
+  { id: "#year-7", position: "seven" },
   { id: "#year-8", position: "eight" }
 ];
 var yearIn = {
   ease: "power2.inOut",
   duration: 220,
-  fontSize: "4.5rem",
-  paddingRight: "2rem"
+  fontSize: fontSizeLarge,
+  paddingRight: paddingSize
 };
 var yearOut = {
   ease: "power2.inOut",
@@ -8273,9 +8325,7 @@ var yearOut = {
   paddingRight: "0rem"
 };
 for (let year of years) {
-  console.log(year);
   if (year.id !== "#year-1") {
-    console.log("yeah");
     tl.to(year.id, yearIn, `${year.position}-=240`);
   }
   if (year.id !== "#year-8") {
@@ -8284,12 +8334,12 @@ for (let year of years) {
 }
 var texts = [
   { id: "#text-1", position: "one" },
-  { id: "#text-2", position: "second" },
-  { id: "#text-3", position: "third" },
-  { id: "#text-4", position: "fourth" },
-  { id: "#text-5", position: "fifth" },
-  { id: "#text-6", position: "sixth" },
-  { id: "#text-7", position: "seventh" },
+  { id: "#text-2", position: "two" },
+  { id: "#text-3", position: "three" },
+  { id: "#text-4", position: "four" },
+  { id: "#text-5", position: "five" },
+  { id: "#text-6", position: "six" },
+  { id: "#text-7", position: "seven" },
   { id: "#text-8", position: "eight" }
 ];
 var textIn = {
@@ -8320,6 +8370,8 @@ for (let text of texts) {
     );
   }
 }
+tl.totalDuration(3500);
+ScrollTrigger2.refresh(true);
 /*! Bundled license information:
 
 gsap/gsap-core.js:
