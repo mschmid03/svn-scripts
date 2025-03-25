@@ -109,8 +109,9 @@ document.addEventListener("DOMContentLoaded", () => {
     const sponsorMarquee = new Swiper(".hero_swiper_sponsors-swiper", {
         slidesPerView: "auto",
         spaceBetween: 120,
+        centeredSlides: true,
         loop: true,
-        speed: 18000,
+        speed: 25000,
         allowTouchMove: false,
         slideClass: "hero_swiper_sponsors-slide",
         autoplay: {
@@ -121,7 +122,7 @@ document.addEventListener("DOMContentLoaded", () => {
     });
 });
 
-homeController.on("slideChangeTransitionStart", () => {
+homeController.on("slideChange", () => {
     const index = homeController.activeIndex;
     const slides = homeController.slides;
     const activeSlide = slides[index];
