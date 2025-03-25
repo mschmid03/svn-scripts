@@ -92,18 +92,20 @@ var homeBgBottom = new Swiper(".hero-swiper_bottom-image_swiper", {
     crossFade: true
   }
 });
-var sponsorMarquee = new Swiper(".hero_swiper_sponsors-swiper", {
-  slidesPerView: "auto",
-  spaceBetween: 120,
-  loop: true,
-  speed: 18e3,
-  allowTouchMove: false,
-  slideClass: "hero_swiper_sponsors-slide",
-  autoplay: {
-    delay: 1.5,
-    disableOnInteraction: false
-  },
-  modules: [Autoplay]
+document.addEventListener("DOMContentLoaded", () => {
+  const sponsorMarquee = new Swiper(".hero_swiper_sponsors-swiper", {
+    slidesPerView: "auto",
+    spaceBetween: 120,
+    loop: true,
+    speed: 18e3,
+    allowTouchMove: false,
+    slideClass: "hero_swiper_sponsors-slide",
+    autoplay: {
+      delay: 1.5,
+      disableOnInteraction: false
+    },
+    modules: [Autoplay]
+  });
 });
 homeController.on("slideChangeTransitionStart", () => {
   const index = homeController.activeIndex;
