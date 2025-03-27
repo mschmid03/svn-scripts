@@ -1,54 +1,11 @@
 import {
-  Autoplay,
-  EffectCoverflow,
   EffectFade,
   Manipulation,
   Navigation,
   Swiper
 } from "./chunk-Z5U7C2Z6.js";
 
-// team-swiper-in-swiper.ts
-var teamController = new Swiper(".team-controller_swiper", {
-  effect: "coverflow",
-  grabCursor: true,
-  centeredSlides: true,
-  loop: true,
-  slidesPerView: "auto",
-  coverflowEffect: {
-    rotate: 0,
-    stretch: -50,
-    depth: 200,
-    modifier: 1,
-    slideShadows: false
-  },
-  modules: [Navigation, Autoplay, EffectCoverflow],
-  navigation: {
-    enabled: true,
-    nextEl: ".team-controller_button-next",
-    prevEl: ".team-controller_button-prev"
-  }
-});
-var teamControlled = new Swiper(".teams-swiper_container", {
-  slidesPerView: 1,
-  effect: "fade",
-  // enabled: false,
-  centeredSlides: true,
-  autoHeight: true,
-  speed: 0,
-  allowTouchMove: false,
-  navigation: false,
-  modules: [EffectFade],
-  fadeEffect: {
-    crossFade: true
-  }
-});
-teamController.on("slideChange", () => {
-  const index = teamController.activeIndex;
-  const slides = teamController.slides;
-  const activeSlide = slides[index];
-  const controllerIndex = activeSlide.getAttribute("controller-index");
-  teamControlled.slideTo(Number(controllerIndex));
-});
+// team-swiper-in-swiper-tabs.ts
 var internalSlider = [];
 var targetNodes = document.querySelectorAll(
   ".team-uebersicht_internal_controller-container"
@@ -148,4 +105,4 @@ targetNodes.forEach((targetNode, i) => {
   const observer = new MutationObserver(callback);
   observer.observe(targetNode, config);
 });
-//# sourceMappingURL=team-swiper-in-swiper.js.map
+//# sourceMappingURL=team-swiper-in-swiper-tabs.js.map

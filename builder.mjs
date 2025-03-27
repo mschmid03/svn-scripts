@@ -9,6 +9,7 @@ const context = await esbuild.context({
         "team-swiper.ts",
         "team-image-swiper.ts",
         "team-swiper-in-swiper.ts",
+        "team-swiper-in-swiper-tabs.ts",
         "timeline.ts",
         "custom.scss",
     ],
