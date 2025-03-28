@@ -46,9 +46,11 @@ const teamController = new Swiper(".team-controller_swiper", {
 // multiply slides so loop works proper
 const realSlides = teamController.slides;
 const indexAttribute = "data-swiper-slide-index";
-realSlides.sort(
-    (a, b) => a.getAttribute(indexAttribute) > b.getAttribute(indexAttribute)
-);
+realSlides.sort((a, b) => {
+    const indexA = parseInt(a.getAttribute(indexAttribute), 10);
+    const indexB = parseInt(b.getAttribute(indexAttribute), 10);
+    return indexA - indexB;
+});
 
 const slidesStrings = [];
 realSlides.forEach((slide, i) => {

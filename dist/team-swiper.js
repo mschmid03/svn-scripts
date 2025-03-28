@@ -38,9 +38,11 @@ var teamController = new Swiper(".team-controller_swiper", {
 });
 var realSlides = teamController.slides;
 var indexAttribute = "data-swiper-slide-index";
-realSlides.sort(
-  (a, b) => a.getAttribute(indexAttribute) > b.getAttribute(indexAttribute)
-);
+realSlides.sort((a, b) => {
+  const indexA = parseInt(a.getAttribute(indexAttribute), 10);
+  const indexB = parseInt(b.getAttribute(indexAttribute), 10);
+  return indexA - indexB;
+});
 var slidesStrings = [];
 realSlides.forEach((slide, i) => {
   const slideIndex = slide.getAttribute("data-swiper-slide-index");

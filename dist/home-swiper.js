@@ -12,7 +12,7 @@ var homeController = new Swiper(".home-controller", {
   effect: "coverflow",
   grabCursor: true,
   centeredSlides: true,
-  initialSlide: 0,
+  // initialSlide: 0,
   loop: true,
   slidesPerView: "auto",
   coverflowEffect: {
@@ -30,12 +30,16 @@ var homeController = new Swiper(".home-controller", {
   }
 });
 var realSlides = homeController.slides;
-var indexAttribute = "data-swiper-slide-index";
-realSlides.sort(
-  (a, b) => a.getAttribute(indexAttribute) > b.getAttribute(indexAttribute)
-);
+var indexAttribute = "slider-position";
+realSlides.sort((a, b) => {
+  const indexA = parseInt(a.getAttribute(indexAttribute), 10);
+  const indexB = parseInt(b.getAttribute(indexAttribute), 10);
+  return indexA - indexB;
+});
+console.log(realSlides);
 var slidesStrings = [];
 realSlides.forEach((slide, i) => {
+  slide.setAttribute("data-swiper-slide-index", i);
   const slideIndex = slide.getAttribute("data-swiper-slide-index");
   slide.setAttribute("controller-index", slideIndex);
   slidesStrings.push(slide.outerHTML);
