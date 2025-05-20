@@ -1,26 +1,18 @@
-import Swiper from "swiper";
-import "swiper/css";
-import {
-    Autoplay,
-    Controller,
-    EffectCoverflow,
-    EffectFade,
-    FreeMode,
-    Manipulation,
-    Navigation,
-    Virtual,
-} from "swiper/modules";
-
+"use strict";
+var __importDefault = (this && this.__importDefault) || function (mod) {
+    return (mod && mod.__esModule) ? mod : { "default": mod };
+};
+Object.defineProperty(exports, "__esModule", { value: true });
+const swiper_1 = __importDefault(require("swiper"));
+require("swiper/css");
+const modules_1 = require("swiper/modules");
 // Home Swipers
-const homeController = new Swiper(".home-controller", {
+const homeController = new swiper_1.default(".home-controller", {
     effect: "coverflow",
     grabCursor: true,
     centeredSlides: true,
-    initialSlide: 0,
-    // slideToClickedSlide: true,
+    // initialSlide: 0,
     loop: true,
-    // spaceBetween: 40,
-    loopAdditionalSlides: 1,
     slidesPerView: "auto",
     coverflowEffect: {
         rotate: 0,
@@ -29,51 +21,36 @@ const homeController = new Swiper(".home-controller", {
         modifier: 1,
         slideShadows: false,
     },
-    observer: true,
-    observeParents: true,
-
-    modules: [Navigation, Autoplay, EffectCoverflow, Manipulation],
-
+    modules: [modules_1.Navigation, modules_1.Autoplay, modules_1.EffectCoverflow, modules_1.Manipulation],
     navigation: {
         enabled: true,
         nextEl: ".home-controller_button-next",
         prevEl: ".home-controller_button-prev",
     },
 });
-
-homeController.slides.forEach((slide) => {
-    slide.onclick = () => {
-        homeController.slideToLoop(slide.dataset.swiperSlideIndex);
-    };
+// multiply slides so loop works proper
+const realSlides = homeController.slides;
+const indexAttribute = "slider-position";
+realSlides.sort((a, b) => {
+    const indexA = parseInt(a.getAttribute(indexAttribute), 10);
+    const indexB = parseInt(b.getAttribute(indexAttribute), 10);
+    return indexA - indexB;
 });
-
-// // multiply slides so loop works proper
-// const realSlides = homeController.slides;
-// const indexAttribute = "slider-position";
-// realSlides.sort((a, b) => {
-//     const indexA = parseInt(a.getAttribute(indexAttribute), 10);
-//     const indexB = parseInt(b.getAttribute(indexAttribute), 10);
-//     return indexA - indexB;
-// });
-
-// console.log(realSlides);
-
-// const slidesStrings = [];
-// realSlides.forEach((slide, i) => {
-//     slide.setAttribute("data-swiper-slide-index", i);
-//     const slideIndex = slide.getAttribute("data-swiper-slide-index");
-//     slide.setAttribute("controller-index", slideIndex);
-//     slidesStrings.push(slide.outerHTML);
-// });
-// // console.log(slidesStrings);
-// homeController.removeAllSlides();
-// while (homeController.slides.length < 15) {
-//     homeController.appendSlide([...slidesStrings]);
-//     homeController.update();
-// }
-// homeController.slideToLoop(0);
-
-const homeControlled = new Swiper(".home-controlled", {
+console.log(realSlides);
+const slidesStrings = [];
+realSlides.forEach((slide, i) => {
+    slide.setAttribute("data-swiper-slide-index", i);
+    const slideIndex = slide.getAttribute("data-swiper-slide-index");
+    slide.setAttribute("controller-index", slideIndex);
+    slidesStrings.push(slide.outerHTML);
+});
+// console.log(slidesStrings);
+homeController.removeAllSlides();
+while (homeController.slides.length < 10) {
+    homeController.appendSlide([...slidesStrings]);
+}
+homeController.slideToLoop(0);
+const homeControlled = new swiper_1.default(".home-controlled", {
     slidesPerView: 1,
     effect: "fade",
     // enabled: false,
@@ -84,12 +61,12 @@ const homeControlled = new Swiper(".home-controlled", {
     wrapperClass: "home-controlled_wrapper",
     slideClass: "home-controlled_swiper-slide",
     navigation: false,
-    modules: [EffectFade],
+    modules: [modules_1.EffectFade],
     fadeEffect: {
         crossFade: true,
     },
 });
-const homeBgTop = new Swiper(".hero-swiper_background-swiper.is-swiper", {
+const homeBgTop = new swiper_1.default(".hero-swiper_background-swiper.is-swiper", {
     slidesPerView: 1,
     effect: "fade",
     // enabled: false,
@@ -99,13 +76,12 @@ const homeBgTop = new Swiper(".hero-swiper_background-swiper.is-swiper", {
     allowTouchMove: false,
     navigation: false,
     wrapperClass: "hero-swiper_background-swiper-wrapper",
-    modules: [EffectFade],
+    modules: [modules_1.EffectFade],
     fadeEffect: {
         crossFade: true,
     },
 });
-
-const homeBgBottom = new Swiper(".hero-swiper_bottom-image_swiper", {
+const homeBgBottom = new swiper_1.default(".hero-swiper_bottom-image_swiper", {
     slidesPerView: 1,
     effect: "fade",
     // enabled: false,
@@ -116,34 +92,32 @@ const homeBgBottom = new Swiper(".hero-swiper_bottom-image_swiper", {
     navigation: false,
     wrapperClass: "hero-swiper_bottom-image_swiper-wrapper",
     slideClass: "hero-swiper_bottom-image_slide",
-    modules: [EffectFade],
+    modules: [modules_1.EffectFade],
     fadeEffect: {
         crossFade: true,
     },
 });
-
 document.addEventListener("DOMContentLoaded", () => {
-    const sponsorMarquee = new Swiper(".hero_swiper_sponsors-swiper", {
+    const sponsorMarquee = new swiper_1.default(".hero_swiper_sponsors-swiper", {
         slidesPerView: "auto",
         spaceBetween: 120,
         centeredSlides: true,
         loop: true,
-        speed: 100000,
+        speed: 25000,
         allowTouchMove: false,
         slideClass: "hero_swiper_sponsors-slide",
         autoplay: {
             delay: 1.5,
             disableOnInteraction: false,
         },
-        modules: [Autoplay],
+        modules: [modules_1.Autoplay],
     });
 });
-
 homeController.on("slideChange", () => {
     const index = homeController.activeIndex;
     const slides = homeController.slides;
     const activeSlide = slides[index];
-    const controllerIndex = activeSlide.getAttribute("data-swiper-slide-index");
+    const controllerIndex = activeSlide.getAttribute("controller-index");
     // console.log(controllerIndex);
     homeControlled.slideTo(Number(controllerIndex));
     homeBgTop.slideTo(Number(controllerIndex));
