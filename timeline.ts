@@ -128,7 +128,7 @@ mm.add("(max-width: 767px)", () => {
 
 // Get all background images without modifying the array
 const bgImages = gsap.utils.toArray(".timeline_background-image");
-const allBgImages = [...bgImages]; // Create a copy to avoid mutation issues
+const allBgImages = [...bgImages].reverse(); // Create a copy to avoid mutation issues
 
 // First image animations
 tl.fromTo(
@@ -161,6 +161,12 @@ tl.fromTo(
 );
 
 // Last image animation
+tl.fromTo(
+    allBgImages[7],
+    { autoAlpha: 0 },
+    { autoAlpha: 1, duration: 150 },
+    "seven+=175"
+);
 tl.fromTo(
     allBgImages[7], // Assuming there are 8 images total
     { top: "0%" },

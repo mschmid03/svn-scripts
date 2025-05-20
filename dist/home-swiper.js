@@ -34,11 +34,6 @@ var homeController = new Swiper(".home-controller", {
     prevEl: ".home-controller_button-prev"
   }
 });
-homeController.slides.forEach((slide) => {
-  slide.onclick = () => {
-    homeController.slideToLoop(slide.dataset.swiperSlideIndex);
-  };
-});
 var homeControlled = new Swiper(".home-controlled", {
   slidesPerView: 1,
   effect: "fade",

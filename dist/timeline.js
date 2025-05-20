@@ -8231,7 +8231,7 @@ mm.add("(max-width: 767px)", () => {
   );
 });
 var bgImages = gsapWithCSS.utils.toArray(".timeline_background-image");
-var allBgImages = [...bgImages];
+var allBgImages = [...bgImages].reverse();
 tl.fromTo(
   allBgImages[0],
   { autoAlpha: 1 },
@@ -8257,6 +8257,12 @@ tl.fromTo(
     }
   },
   "one+=175"
+);
+tl.fromTo(
+  allBgImages[7],
+  { autoAlpha: 0 },
+  { autoAlpha: 1, duration: 150 },
+  "seven+=175"
 );
 tl.fromTo(
   allBgImages[7],

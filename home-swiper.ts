@@ -41,11 +41,16 @@ const homeController = new Swiper(".home-controller", {
     },
 });
 
-homeController.slides.forEach((slide) => {
-    slide.onclick = () => {
-        homeController.slideToLoop(slide.dataset.swiperSlideIndex);
-    };
-});
+// homeController.slides.forEach((slide) => {
+//     slide.onclick = () => {
+//         console.log(slide);
+//         homeController.slideToLoop(
+//             slide.getAttribute("slider-position"),
+//             600,
+//             true
+//         );
+//     };
+// });
 
 // // multiply slides so loop works proper
 // const realSlides = homeController.slides;
