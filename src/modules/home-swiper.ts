@@ -1,5 +1,4 @@
 import Swiper from "swiper";
-import "swiper/css";
 import {
   Autoplay,
   EffectCoverflow,
@@ -124,21 +123,19 @@ const homeBgBottom = new Swiper(".hero-swiper_bottom-image_swiper", {
   },
 });
 
-document.addEventListener("DOMContentLoaded", () => {
-  const sponsorMarquee = new Swiper(".hero_swiper_sponsors-swiper", {
-    slidesPerView: "auto",
-    spaceBetween: 120,
-    centeredSlides: true,
-    loop: true,
-    speed: 100000,
-    allowTouchMove: false,
-    slideClass: "hero_swiper_sponsors-slide",
-    autoplay: {
-      delay: 1.5,
-      disableOnInteraction: false,
-    },
-    modules: [Autoplay],
-  });
+const sponsorMarquee = new Swiper(".hero_swiper_sponsors-swiper", {
+  slidesPerView: "auto",
+  spaceBetween: 120,
+  centeredSlides: true,
+  loop: true,
+  speed: 100000,
+  allowTouchMove: false,
+  slideClass: "hero_swiper_sponsors-slide",
+  autoplay: {
+    delay: 1.5,
+    disableOnInteraction: false,
+  },
+  modules: [Autoplay],
 });
 
 homeController.on("slideChange", () => {

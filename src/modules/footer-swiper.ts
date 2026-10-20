@@ -1,14 +1,5 @@
 import Swiper from "swiper";
-import "swiper/css";
-import {
-    Autoplay,
-    Controller,
-    EffectCoverflow,
-    EffectFade,
-    FreeMode,
-    Navigation,
-    Virtual,
-} from "swiper/modules";
+import { Autoplay, Navigation } from "swiper/modules";
 
 const footerSwiper = new Swiper(".footer_swiper", {
     loop: true,

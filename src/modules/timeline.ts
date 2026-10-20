@@ -1,13 +1,6 @@
-import { gsap } from "gsap";
+// ScrollTrigger und DrawSVGPlugin registriert die Webflow-GSAP-Integration
+import { gsap, ScrollTrigger } from "../gsap";
 
-import { MotionPathPlugin } from "gsap/MotionPathPlugin";
-import { ScrollTrigger } from "gsap/ScrollTrigger";
-
-/* The following plugin is a Club GSAP perk */
-import { DrawSVGPlugin } from "gsap/DrawSVGPlugin";
-
-gsap.registerPlugin(ScrollTrigger, MotionPathPlugin, DrawSVGPlugin);
-// commit comment
 let tl = gsap.timeline({
     // yes, we can add it to an entire timeline!
     scrollTrigger: {

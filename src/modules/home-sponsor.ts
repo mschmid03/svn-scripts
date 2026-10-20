@@ -1,3 +1,7 @@
+// @ts-nocheck – GSAP-Helper (horizontalLoop) ist unverändert übernommen
+// Sponsoren-Logos auf Home als ziehbarer Endlos-Loop (vorher Inline-Code im Footer der Home-Seite)
+import { gsap, Draggable } from "../gsap";
+
 const images = document.querySelectorAll(".hero_swiper_sponsors-logo");
 images.forEach((image) => {
 	image.width = image.getAttribute("ms-width");
@@ -6,25 +10,10 @@ images.forEach((image) => {
 
 const boxes = gsap.utils.toArray(".hero_swiper_sponsors-logo-container");
 
-gsap.registerPlugin(Draggable, InertiaPlugin, ScrollTrigger);
-ScrollTrigger.normalizeScroll({ allowNestedScroll: true });
+// Auf Webflow war normalizeScroll auskommentiert, daher hier ebenfalls aus
+// ScrollTrigger.normalizeScroll({ allowNestedScroll: true });
 
-let loop;
-
-function createAnimation() {
-	loop = horizontalLoop(boxes, { repeat: -1, draggable: true, reversed: true });
-}
-
-function destroyAnimation() {
-	if (loop) {
-		loop.kill();
-		loop = null;
-	}
-}
-
-window.addEventListener("DOMContentLoaded", () => {
-	createAnimation();
-});
+let loop = horizontalLoop(boxes, { repeat: -1, draggable: true, reversed: true });
 
 document
 	.querySelector(".hero_swiper_sponsors-cms")

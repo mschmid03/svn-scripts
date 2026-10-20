@@ -1,60 +1,7 @@
 import Swiper from "swiper";
-import "swiper/css";
-import {
-    Autoplay,
-    EffectCoverflow,
-    EffectFade,
-    Manipulation,
-    Navigation,
-} from "swiper/modules";
+import { EffectFade, Manipulation, Navigation } from "swiper/modules";
 
-// Home Swipers
-const teamController = new Swiper(".team-controller_swiper", {
-    effect: "coverflow",
-    grabCursor: true,
-    centeredSlides: true,
-    loop: true,
-    slidesPerView: "auto",
-    coverflowEffect: {
-        rotate: 0,
-        stretch: -50,
-        depth: 200,
-        modifier: 1,
-        slideShadows: false,
-    },
-
-    modules: [Navigation, Autoplay, EffectCoverflow],
-
-    navigation: {
-        enabled: true,
-        nextEl: ".team-controller_button-next",
-        prevEl: ".team-controller_button-prev",
-    },
-});
-
-const teamControlled = new Swiper(".teams-swiper_container", {
-    slidesPerView: 1,
-    effect: "fade",
-    // enabled: false,
-    centeredSlides: true,
-    autoHeight: true,
-    speed: 0,
-    allowTouchMove: false,
-    navigation: false,
-    modules: [EffectFade],
-    fadeEffect: {
-        crossFade: true,
-    },
-});
-
-teamController.on("slideChange", () => {
-    const index = teamController.activeIndex;
-    const slides = teamController.slides;
-    const activeSlide = slides[index];
-    const controllerIndex = activeSlide.getAttribute("controller-index");
-    teamControlled.slideTo(Number(controllerIndex));
-});
-
+// Interne Swiper je Team (Junioren: zusammen mit team-controller, Juniorinnen: in CMS-Tabs)
 const internalSlider: any[][] = [];
 
 // Select the node that will be observed for mutations
@@ -172,6 +119,11 @@ targetNodes.forEach((targetNode, i) => {
 
     // Start observing the target node for configured mutations
     observer.observe(targetNode, config);
+
+    // Falls cmsnest schon fertig war, bevor dieses Modul geladen wurde
+    if (targetNode.querySelectorAll(".swiper-slide").length > 1) {
+        callback([{ addedNodes: [targetNode] }], observer);
+    }
 
     // // Later, you can stop observing
     // observer.disconnect();

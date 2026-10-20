@@ -1,0 +1,1 @@
+import{a as e,b as r,c as t}from"./chunk-OKC52BWR.js";var o=document.querySelectorAll(".team-image-swiper_container"),a=[];o.forEach(i=>{a.push(new e(i,{effect:"slide",grabCursor:!0,centeredSlides:!0,loop:!0,slidesPerView:1,modules:[r,t],navigation:{enabled:!0,nextEl:".team-image-swiper_next",prevEl:".team-image-swiper_prev"}}))});

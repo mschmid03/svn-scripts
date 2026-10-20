@@ -1,27 +1,14 @@
 import * as esbuild from "esbuild";
-import { sassPlugin } from "esbuild-sass-plugin";
+import { options } from "./esbuild.config.mjs";
 
+// Lokale Entwicklung: npm run watch + npm run serve (Port 3000).
+// Schreibt nach dist-dev/ (nicht eingecheckt), damit dist/ nur Release-Builds enthält.
 const context = await esbuild.context({
-  format: "esm",
-  entryPoints: [
-    "home-swiper.ts",
-    "footer-swiper.ts",
-    "team-swiper.ts",
-    "timeline.ts",
-    "custom.scss",
-  ],
-  bundle: true,
-  // splitting: true,
-  minify: false,
-  sourcemap: true,
-  outdir: "dist",
-  plugins: [sassPlugin()],
+    ...options,
+    outdir: "dist-dev",
+    minify: false,
+    sourcemap: true,
+    logLevel: "info",
 });
-// Enable watch mode
-await context.watch();
 
-// // Enable serve mode
-// await context.serve();
-//
-// // Dispose of the context
-// await context.dispose();
+await context.watch();
