@@ -2,26 +2,28 @@
 // Sponsoren-Logos auf Home als ziehbarer Endlos-Loop (vorher Inline-Code im Footer der Home-Seite)
 import { gsap, Draggable } from "../gsap";
 
-const images = document.querySelectorAll(".hero_swiper_sponsors-logo");
-images.forEach((image) => {
-	image.width = image.getAttribute("ms-width");
-	image.height = image.getAttribute("ms-height");
-});
+export function init() {
+	const images = document.querySelectorAll(".hero_swiper_sponsors-logo");
+	images.forEach((image) => {
+		image.width = image.getAttribute("ms-width");
+		image.height = image.getAttribute("ms-height");
+	});
 
-const boxes = gsap.utils.toArray(".hero_swiper_sponsors-logo-container");
+	const boxes = gsap.utils.toArray(".hero_swiper_sponsors-logo-container");
 
-// Auf Webflow war normalizeScroll auskommentiert, daher hier ebenfalls aus
-// ScrollTrigger.normalizeScroll({ allowNestedScroll: true });
+	// Auf Webflow war normalizeScroll auskommentiert, daher hier ebenfalls aus
+	// ScrollTrigger.normalizeScroll({ allowNestedScroll: true });
 
-let loop = horizontalLoop(boxes, { repeat: -1, draggable: true, reversed: true });
+	let loop = horizontalLoop(boxes, { repeat: -1, draggable: true, reversed: true });
 
-document
-	.querySelector(".hero_swiper_sponsors-cms")
-	.addEventListener("mouseenter", () => loop.pause());
+	document
+		.querySelector(".hero_swiper_sponsors-cms")
+		.addEventListener("mouseenter", () => loop.pause());
 
-document
-	.querySelector(".hero_swiper_sponsors-cms")
-	.addEventListener("mouseleave", () => loop.reverse());
+	document
+		.querySelector(".hero_swiper_sponsors-cms")
+		.addEventListener("mouseleave", () => loop.reverse());
+}
 
 // This helper function makes a group of elements animate along the x-axis in a seamless, responsive loop.
 
