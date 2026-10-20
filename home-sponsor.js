@@ -7,12 +7,23 @@ images.forEach((image) => {
 const boxes = gsap.utils.toArray(".hero_swiper_sponsors-logo-container");
 
 gsap.registerPlugin(Draggable, InertiaPlugin, ScrollTrigger);
-ScrollTrigger.normalizeScroll(true);
+ScrollTrigger.normalizeScroll({ allowNestedScroll: true });
 
 let loop;
 
-window.addEventListener("DOMContentLoaded", () => {
+function createAnimation() {
 	loop = horizontalLoop(boxes, { repeat: -1, draggable: true, reversed: true });
+}
+
+function destroyAnimation() {
+	if (loop) {
+		loop.kill();
+		loop = null;
+	}
+}
+
+window.addEventListener("DOMContentLoaded", () => {
+	createAnimation();
 });
 
 document
